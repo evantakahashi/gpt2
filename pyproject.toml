@@ -1,0 +1,25 @@
+[project]
+name = "nano-gpt-scratch"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.4",
+    "tiktoken",
+    "numpy",
+    "datasets",
+    "tqdm",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
