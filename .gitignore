@@ -9,7 +9,7 @@ venv/
 .vscode/
 
 # data + ckpts
-data/
+/data/
 *.bin
 *.idx
 checkpoints/
