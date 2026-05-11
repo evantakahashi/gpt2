@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from glob import glob
+from pathlib import Path
+
+import numpy as np
 import torch
 
 
@@ -23,23 +27,48 @@ class DistributedDataLoader:
         world_size: int,
         dtype: str = "uint16",
     ) -> None:
-        # self.shards = sorted(glob(...))
-        # self.current_shard = 0
-        # self.tokens = self._load_shard(self.shards[0])
-        # self.position = rank * batch_size * seq_len
-        raise NotImplementedError
+        self.data_dir = data_dir
+        self.shard_glob = shard_glob
+        self.batch_size = batch_size
+        self.seq_len = seq_len
+        self.rank = rank
+        self.world_size = world_size
+        self.dtype = dtype
 
-    def _load_shard(self, path: str):
-        """np.memmap or np.fromfile -> torch.from_numpy (long)."""
-        raise NotImplementedError
+        self.shards = sorted(glob(str(Path(data_dir) / shard_glob)))
+        if not self.shards:
+            raise FileNotFoundError(f"no shards matched {data_dir}/{shard_glob}")
+
+        self.current_shard = 0
+        self.tokens = self._load_shard(self.shards[self.current_shard])
+        self.position = rank * batch_size * seq_len
+
+    def _load_shard(self, path: str) -> torch.Tensor:
+        np_dtype = np.uint16 if self.dtype == "uint16" else np.uint32
+        arr = np.memmap(path, dtype=np_dtype, mode="r")
+        return torch.from_numpy(arr.astype(np.int64))
+
+    def _advance_shard(self) -> None:
+        self.current_shard = (self.current_shard + 1) % len(self.shards)
+        self.tokens = self._load_shard(self.shards[self.current_shard])
+        self.position = self.rank * self.batch_size * self.seq_len
 
     def next_batch(self) -> tuple[torch.Tensor, torch.Tensor]:
-        """Advance position; on shard end, load next shard. Returns (x, y) on CPU pinned."""
-        raise NotImplementedError
+        B, T = self.batch_size, self.seq_len
+        need = B * T + 1
+        if self.position + need > len(self.tokens):
+            self._advance_shard()
+
+        buf = self.tokens[self.position : self.position + need]
+        x = buf[:-1].view(B, T)
+        y = buf[1:].view(B, T)
+        self.position += self.world_size * B * T
+        return x, y
 
     def state_dict(self) -> dict:
-        """For deterministic resume."""
-        raise NotImplementedError
+        return {"current_shard": self.current_shard, "position": self.position}
 
     def load_state_dict(self, state: dict) -> None:
-        raise NotImplementedError
+        self.current_shard = state["current_shard"]
+        self.tokens = self._load_shard(self.shards[self.current_shard])
+        self.position = state["position"]

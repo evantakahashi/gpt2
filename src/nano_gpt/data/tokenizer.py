@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+import tiktoken
+
 
 class Tokenizer:
     """Thin wrapper around tiktoken.get_encoding('gpt2')."""
 
     def __init__(self) -> None:
-        # self.enc = tiktoken.get_encoding("gpt2")
-        # self.eot = self.enc.eot_token  # 50256
-        # self.vocab_size = self.enc.n_vocab  # 50257
-        raise NotImplementedError
+        self.enc = tiktoken.get_encoding("gpt2")
+        self.eot = self.enc.eot_token
+        self.vocab_size = self.enc.n_vocab
 
     def encode(self, text: str, allowed_special: set[str] | None = None) -> list[int]:
-        raise NotImplementedError
+        return self.enc.encode(text, allowed_special=allowed_special or set())
 
     def decode(self, ids: list[int]) -> str:
-        raise NotImplementedError
+        return self.enc.decode(ids)
