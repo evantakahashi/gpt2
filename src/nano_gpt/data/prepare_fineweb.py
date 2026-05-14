@@ -9,7 +9,7 @@ Each shard is a flat array of token ids; documents separated by EOT (50256).
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import numpy as np

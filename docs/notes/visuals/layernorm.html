@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LayerNorm — visual</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --muted: #6b7280;
+    --text: #e5e7eb;
+    --accent: #60a5fa;
+    --pos: #34d399;
+    --neg: #f87171;
+    --grid: #2a2f3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  }
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  .sub { color: var(--muted); margin-bottom: 24px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--grid); border-radius: 12px;
+    padding: 20px; min-width: 320px;
+  }
+  .panel h2 { margin: 0 0 14px; font-size: 16px; color: var(--accent); }
+  .panel h3 { margin: 18px 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .tensor { display: grid; gap: 6px; }
+  .row-label { display: flex; align-items: center; gap: 10px; }
+  .row-label .label { color: var(--muted); min-width: 56px; font-variant-numeric: tabular-nums; font-size: 12px; }
+  .cells { display: flex; gap: 4px; }
+  .cell {
+    width: 56px; height: 36px; line-height: 36px; text-align: center;
+    background: #1e2330; border: 1px solid var(--grid); border-radius: 4px;
+    font-variant-numeric: tabular-nums; font-size: 13px;
+  }
+  .cell input {
+    width: 100%; height: 100%; background: transparent; border: none; color: inherit;
+    text-align: center; font: inherit; outline: none;
+  }
+  .cell.pos { background: linear-gradient(to right, rgba(52,211,153,0.0) 0%, rgba(52,211,153,0.35) 100%); }
+  .cell.neg { background: linear-gradient(to right, rgba(248,113,113,0.35) 0%, rgba(248,113,113,0.0) 100%); }
+  .scalar { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .controls { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+  .controls label { color: var(--muted); }
+  .controls input[type="number"] {
+    background: #1e2330; border: 1px solid var(--grid); color: var(--text);
+    width: 80px; padding: 6px 8px; border-radius: 6px; font: inherit;
+  }
+  button {
+    background: #1e2330; color: var(--text); border: 1px solid var(--grid);
+    border-radius: 6px; padding: 7px 12px; cursor: pointer; font: inherit;
+  }
+  button:hover { background: #242a39; }
+  .axis-marker {
+    display: inline-block; margin-left: 8px; padding: 2px 8px;
+    background: rgba(96, 165, 250, 0.15); border: 1px solid var(--accent);
+    color: var(--accent); border-radius: 999px; font-size: 11px;
+  }
+  .formula {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: #0b0d12; border: 1px solid var(--grid); border-radius: 6px;
+    padding: 10px 12px; margin: 8px 0; color: #cbd5e1; font-size: 13px;
+  }
+  .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .legend { display: flex; gap: 18px; color: var(--muted); font-size: 12px; margin-top: 10px; }
+  .legend .sw { display: inline-block; width: 16px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .compare-axis {
+    display: flex; gap: 6px; flex-direction: column;
+  }
+  .compare-axis .row { flex-wrap: nowrap; }
+  .arrow-down {
+    display: flex; justify-content: center; align-items: center; height: 16px;
+    color: var(--muted); margin: 4px 0;
+  }
+  .highlight-ln {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px;
+  }
+  .highlight-bn {
+    outline: 2px solid #fbbf24; outline-offset: 2px; border-radius: 6px;
+  }
+  details summary { cursor: pointer; color: var(--accent); margin-bottom: 8px; }
+  code { background: #0b0d12; padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<h1>LayerNorm — interactive visualization</h1>
+<div class="sub">Tensor shape <code>(B=2, T=3, D=6)</code>. Each row in the grid is one token's features. LayerNorm normalizes <b>across the last dim (the row)</b> — each row independently.</div>
+
+<div class="row">
+
+  <!-- LEFT: Input tensor, editable -->
+  <div class="panel">
+    <h2>Input tensor x</h2>
+    <div id="input-tensor" class="tensor"></div>
+    <div class="controls">
+      <button id="rand-btn">Randomize</button>
+      <button id="reset-btn">Reset</button>
+      <label>ε <input id="eps" type="number" value="0.00001" step="0.0001" min="0"></label>
+    </div>
+    <h3>γ (weight) and β (bias)</h3>
+    <div id="gamma-row"></div>
+    <div id="beta-row"></div>
+    <div class="controls">
+      <label>γ default <input id="g-default" type="number" value="1" step="0.1"></label>
+      <label>β default <input id="b-default" type="number" value="0" step="0.1"></label>
+      <button id="gb-reset">Reset γ,β</button>
+    </div>
+  </div>
+
+  <!-- MIDDLE: Step-by-step transformation -->
+  <div class="panel" style="flex: 1; min-width: 420px;">
+    <h2>Per-row pipeline</h2>
+
+    <h3>1. compute μ (mean over last dim)</h3>
+    <div class="formula">μ_row = mean(x_row)</div>
+    <div id="step-mean"></div>
+
+    <h3>2. compute σ² (variance over last dim)</h3>
+    <div class="formula">σ²_row = mean( (x_row − μ_row)² )</div>
+    <div id="step-var"></div>
+
+    <h3>3. normalize</h3>
+    <div class="formula">x̂_row = (x_row − μ_row) / √(σ²_row + ε)</div>
+    <div id="step-normalized"></div>
+    <div class="note">After this step every row has mean ≈ 0 and variance ≈ 1.</div>
+
+    <h3>4. scale and shift</h3>
+    <div class="formula">y_row = γ ⊙ x̂_row + β</div>
+    <div id="step-output"></div>
+    <div class="note">γ and β are learned, shared across all tokens. They let the network "un-normalize on purpose" per-feature.</div>
+
+    <div class="legend">
+      <span><span class="sw" style="background:linear-gradient(to right, rgba(52,211,153,0.0), rgba(52,211,153,0.6));"></span>positive value</span>
+      <span><span class="sw" style="background:linear-gradient(to right, rgba(248,113,113,0.6), rgba(248,113,113,0.0));"></span>negative value</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="row" style="margin-top: 24px;">
+
+  <!-- BOTTOM-LEFT: axis comparison -->
+  <div class="panel" style="flex: 1; min-width: 420px;">
+    <h2>LayerNorm vs BatchNorm — which axis?</h2>
+    <p class="note">Same tensor <code>(B=2, T=3, D=6)</code>, two different reductions.</p>
+
+    <h3><span class="axis-marker">LayerNorm</span> normalizes across the feature axis (the row)</h3>
+    <div id="axis-ln" class="tensor"></div>
+    <div class="note">Each (b, t) gets its own μ and σ². No coupling across the batch.</div>
+
+    <h3><span class="axis-marker" style="background: rgba(251,191,36,0.15); border-color: #fbbf24; color: #fbbf24;">BatchNorm</span> normalizes across the batch axis (the column)</h3>
+    <div id="axis-bn" class="tensor"></div>
+    <div class="note">Each feature dim gets one μ and σ² computed over all tokens in the batch. Needs cross-rank sync under DDP; breaks at batch=1; train/eval mismatch. Reasons we use LN.</div>
+  </div>
+
+  <!-- BOTTOM-RIGHT: what to implement -->
+  <div class="panel">
+    <h2>What you're implementing</h2>
+<pre style="background:#0b0d12; border:1px solid var(--grid); border-radius:6px; padding:14px; overflow:auto; font-family: ui-monospace, Menlo, monospace; color:#cbd5e1; font-size: 12px; margin: 0;">def forward(self, x: torch.Tensor) -> torch.Tensor:
+    # x: (..., n_embd)
+    # 1. mean over last dim, keepdim=True  →  shape (..., 1)
+    # 2. var over last dim, keepdim=True, unbiased=False
+    # 3. (x - mean) * rsqrt(var + self.eps)
+    # 4. * self.weight; + self.bias if not None
+    return ...</pre>
+    <div class="note" style="margin-top:14px;">
+      The picture above shows the <b>mathematical steps</b>.
+      Your code does these in vectorized torch ops — no Python loop over rows.
+      <code>keepdim=True</code> makes the mean/var shape <code>(..., 1)</code> so it broadcasts back against <code>x</code> automatically.
+    </div>
+
+    <details style="margin-top:16px;">
+      <summary>Why does step 3 always give mean=0 var=1?</summary>
+      <div class="note">
+        Subtracting the mean centers the data at 0 by definition. Dividing by √σ² makes the variance equal to 1 (any random variable Z with var V, when divided by √V, has var 1). Adding ε inside the sqrt only matters when σ² is so close to 0 that 1/√σ² would blow up.
+      </div>
+    </details>
+  </div>
+
+</div>
+
+<script>
+(() => {
+  const B = 2, T = 3, D = 6;
+  // Seed inputs deterministically so the visual is the same on first load
+  const SEED_X = [
+     1.5, -0.3, 2.1, -1.2, 0.7, 0.4,
+    -0.8,  1.1, 0.2,  0.5, -0.4, 1.3,
+     0.9, -2.0, 1.4,  0.8,  0.1, -0.6,
+    -1.0, -0.5, 0.0,  0.6,  1.8, 0.3,
+     0.2,  0.4, -0.7, 1.0,  0.5, -0.1,
+     2.0, -0.5, 0.5, -0.2, -1.0, 0.8,
+  ];
+  let X = SEED_X.slice();
+  let GAMMA = Array(D).fill(1);
+  let BETA  = Array(D).fill(0);
+
+  const $ = sel => document.querySelector(sel);
+  const fmt = v => (v >= 0 ? " " : "") + v.toFixed(2);
+
+  function cellEl(v, editable=false, colorize=true) {
+    const c = document.createElement("div");
+    c.className = "cell";
+    if (colorize) {
+      if (v > 0) c.classList.add("pos");
+      if (v < 0) c.classList.add("neg");
+    }
+    if (editable) {
+      const i = document.createElement("input");
+      i.type = "number"; i.step = "0.1"; i.value = v.toFixed(2);
+      c.appendChild(i);
+      return { el: c, input: i };
+    } else {
+      c.textContent = fmt(v);
+      return { el: c };
+    }
+  }
+
+  function buildRow(values, labelText, editable=false) {
+    const row = document.createElement("div");
+    row.className = "row-label";
+    const lab = document.createElement("div");
+    lab.className = "label"; lab.textContent = labelText;
+    const cells = document.createElement("div");
+    cells.className = "cells";
+    const refs = [];
+    for (const v of values) {
+      const c = cellEl(v, editable);
+      cells.appendChild(c.el);
+      refs.push(c);
+    }
+    row.appendChild(lab);
+    row.appendChild(cells);
+    return { row, refs };
+  }
+
+  function buildScalar(label, value) {
+    const row = document.createElement("div");
+    row.className = "row-label";
+    const lab = document.createElement("div");
+    lab.className = "label"; lab.textContent = label;
+    const s = document.createElement("div");
+    s.className = "scalar"; s.textContent = fmt(value);
+    row.appendChild(lab);
+    row.appendChild(s);
+    return row;
+  }
+
+  function rowOf(arr, b, t) {
+    const start = (b * T + t) * D;
+    return arr.slice(start, start + D);
+  }
+  function setRowOf(arr, b, t, vals) {
+    const start = (b * T + t) * D;
+    for (let i = 0; i < D; i++) arr[start + i] = vals[i];
+  }
+
+  function meanArr(a) { return a.reduce((s,v)=>s+v,0) / a.length; }
+  function varArr(a)  { const m = meanArr(a); return a.reduce((s,v)=>s+(v-m)*(v-m),0)/a.length; }
+
+  function render() {
+    const eps = parseFloat($("#eps").value);
+
+    // Input tensor (editable)
+    const itEl = $("#input-tensor");
+    itEl.innerHTML = "";
+    const inputRefs = [];
+    for (let b = 0; b < B; b++) {
+      for (let t = 0; t < T; t++) {
+        const idx = b * T + t;
+        const vals = rowOf(X, b, t);
+        const { row, refs } = buildRow(vals, `(b=${b}, t=${t})`, true);
+        itEl.appendChild(row);
+        inputRefs.push(refs);
+      }
+    }
+    // Re-wire editing
+    inputRefs.forEach((refs, idx) => {
+      const b = Math.floor(idx / T), t = idx % T;
+      refs.forEach((r, i) => {
+        r.input.addEventListener("input", () => {
+          const v = parseFloat(r.input.value);
+          if (!isNaN(v)) {
+            X[(b*T+t)*D + i] = v;
+            renderDerived();
+          }
+        });
+      });
+    });
+
+    // γ row
+    const gEl = $("#gamma-row");
+    gEl.innerHTML = "";
+    const { row: gRow, refs: gRefs } = buildRow(GAMMA, "γ (1×D)", true);
+    gEl.appendChild(gRow);
+    gRefs.forEach((r, i) => {
+      r.input.addEventListener("input", () => {
+        const v = parseFloat(r.input.value);
+        if (!isNaN(v)) { GAMMA[i] = v; renderDerived(); }
+      });
+    });
+
+    // β row
+    const bEl = $("#beta-row");
+    bEl.innerHTML = "";
+    const { row: bRow, refs: bRefs } = buildRow(BETA, "β (1×D)", true);
+    bEl.appendChild(bRow);
+    bRefs.forEach((r, i) => {
+      r.input.addEventListener("input", () => {
+        const v = parseFloat(r.input.value);
+        if (!isNaN(v)) { BETA[i] = v; renderDerived(); }
+      });
+    });
+
+    renderDerived();
+  }
+
+  function renderDerived() {
+    const eps = parseFloat($("#eps").value);
+
+    // Step: mean
+    const meanEl = $("#step-mean");
+    meanEl.innerHTML = "";
+    // Step: var
+    const varEl = $("#step-var");
+    varEl.innerHTML = "";
+    // Step: normalized
+    const normEl = $("#step-normalized");
+    normEl.innerHTML = "";
+    // Step: output
+    const outEl = $("#step-output");
+    outEl.innerHTML = "";
+
+    for (let b = 0; b < B; b++) {
+      for (let t = 0; t < T; t++) {
+        const vals = rowOf(X, b, t);
+        const m = meanArr(vals);
+        const v = varArr(vals);
+        const x_hat = vals.map(x => (x - m) / Math.sqrt(v + eps));
+        const y = x_hat.map((xh, i) => GAMMA[i] * xh + BETA[i]);
+
+        meanEl.appendChild(buildScalar(`(b=${b}, t=${t})  μ`, m));
+        varEl.appendChild(buildScalar(`(b=${b}, t=${t})  σ²`, v));
+        normEl.appendChild(buildRow(x_hat, `x̂ (b=${b},t=${t})`).row);
+        outEl.appendChild(buildRow(y, `y (b=${b},t=${t})`).row);
+      }
+    }
+
+    // Axis comparison
+    renderAxis();
+  }
+
+  function renderAxis() {
+    // LN view: highlight per-row reductions
+    const lnEl = $("#axis-ln");
+    lnEl.innerHTML = "";
+    for (let b = 0; b < B; b++) {
+      for (let t = 0; t < T; t++) {
+        const vals = rowOf(X, b, t);
+        const { row } = buildRow(vals, `(b=${b}, t=${t})`);
+        const cells = row.querySelector(".cells");
+        cells.classList.add("highlight-ln");
+        lnEl.appendChild(row);
+      }
+    }
+
+    // BN view: highlight per-column reductions
+    const bnEl = $("#axis-bn");
+    bnEl.innerHTML = "";
+    // We render the same rows but apply column-highlight CSS via wrapping
+    const container = document.createElement("div");
+    container.style.position = "relative";
+    container.style.display = "grid";
+    container.style.gap = "6px";
+    for (let b = 0; b < B; b++) {
+      for (let t = 0; t < T; t++) {
+        const vals = rowOf(X, b, t);
+        const { row } = buildRow(vals, `(b=${b}, t=${t})`);
+        container.appendChild(row);
+      }
+    }
+    // Add column outlines by absolutely positioning a row of placeholders below
+    bnEl.appendChild(container);
+    // simple visual: outline each column by adding outline to corresponding cells
+    const allRows = container.querySelectorAll(".cells");
+    allRows.forEach(rowDiv => {
+      [...rowDiv.children].forEach(c => c.classList.add("highlight-bn"));
+    });
+  }
+
+  function randNorm() {
+    const u = Math.random(), v = Math.random();
+    return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+  }
+
+  $("#rand-btn").addEventListener("click", () => {
+    for (let i = 0; i < X.length; i++) X[i] = Math.round(randNorm() * 100) / 100;
+    render();
+  });
+  $("#reset-btn").addEventListener("click", () => {
+    X = SEED_X.slice();
+    render();
+  });
+  $("#gb-reset").addEventListener("click", () => {
+    const gd = parseFloat($("#g-default").value);
+    const bd = parseFloat($("#b-default").value);
+    GAMMA = Array(D).fill(isNaN(gd) ? 1 : gd);
+    BETA  = Array(D).fill(isNaN(bd) ? 0 : bd);
+    render();
+  });
+  $("#eps").addEventListener("input", renderDerived);
+
+  render();
+})();
+</script>
+
+</body>
+</html>
