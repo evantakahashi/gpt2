@@ -310,6 +310,98 @@ The normalization forces a fixed distribution. γ and β let the network **un-no
 
 ---
 
+## 7. Embeddings (token + positional)
+
+### Why we need embeddings at all
+Model input: token ids of shape `(B, T)` — integers in `[0, vocab_size)`. Transformer wants vectors of shape `(B, T, D)`. The embedding layer is the integer → vector translation. Two pieces of information need to be encoded:
+
+1. **What the token *is*** — handled by `TokenEmbedding`.
+2. **Where the token is in the sequence** — handled by `LearnedPositionalEmbedding`.
+
+Why both? **Self-attention is permutation-invariant.** If you shuffle input tokens, attention by itself produces the same result. The model literally cannot distinguish "the cat sat" from "sat cat the" without position info. So we inject "where am I" as an additive vector.
+
+### TokenEmbedding — the lookup table
+- A learnable `(vocab_size, n_embd)` matrix.
+- Forward: for each id in `idx[b, t]`, return the corresponding row.
+- At 124M: `(50257, 768)` ≈ 39M params — about **30% of the whole model**.
+- Implemented via `nn.Embedding` (which is itself just `Parameter + F.embedding` indexing under the hood).
+- Used twice: as input embedding **and** as the final `lm_head` projection (weight tying — Step 2 final assembly). The same matrix that converts id → vector is transposed to convert hidden_state → logits over vocab. Saves 39M params.
+
+### LearnedPositionalEmbedding — the position table
+- A learnable `(block_size, n_embd)` matrix.
+- Forward: return rows `0..t-1` for an input of length `t`.
+- Capped at `block_size = 1024` for GPT-2. **Cannot extrapolate** to longer sequences than seen at training.
+- Added (elementwise sum) to token embeddings:
+  ```python
+  tok_emb = self.token_emb(idx)        # (B, T, D)
+  pos_emb = self.pos_emb(T)            # (T, D)
+  h = tok_emb + pos_emb                # broadcast over batch → (B, T, D)
+  ```
+- The `+` works because PyTorch broadcasts `(T, D)` against `(B, T, D)` — same positional vector added to every batch row.
+
+### Why the model learns to use the sum
+Naively, adding position to content seems to corrupt both. But because gradients flow back through both embeddings independently, the model learns to allocate **different subspaces of D** for content vs. position, and to disentangle them at downstream attention layers. With D=768 there's plenty of room.
+
+### Alternatives (will come up later)
+- **Sinusoidal positions** (original Transformer, "Attention Is All You Need"): fixed sin/cos functions of position, no learned params. Extrapolates to any length in principle, though attention quality degrades.
+- **RoPE (Rotary Position Embedding)** — Llama, modern models: a rotation matrix applied to **Q and K inside attention**, not added to the embedding. Encodes *relative* positions, extrapolates better. Will swap in during Step 6.
+- **ALiBi**: a position-dependent bias added to attention logits. Different approach again.
+
+### Sources to watch/read before implementing
+**Karpathy "Let's build GPT: from scratch"** (https://youtu.be/kCc8FmEb1nY):
+- Token embedding as bigram model: **~20:00–35:00** (verify against chapters).
+- Positional embedding addition: **~1:00:00–1:10:00**.
+
+**Karpathy "Let's reproduce GPT-2 (124M)"** (https://youtu.be/l8pRSuU81PU):
+- First ~15–25 minutes: `wte` (token) and `wpe` (position) defined inside the `GPT` class; `tok_emb + pos_emb` add.
+
+**Papers:**
+- GPT-2 §2.1 — one paragraph on learned positions.
+- "Attention Is All You Need" §3.5 — original sinusoidal positions.
+- RoFormer (Su et al. 2021) — original RoPE paper.
+
+### Code reference
+- `src/nano_gpt/model/embeddings.py` — `TokenEmbedding` (full), `LearnedPositionalEmbedding` (your `forward` TODO), `RoPECache`/`apply_rope` stubs for Step 6.
+
+### Are embeddings trained? YES — they're learned end-to-end
+Both `TokenEmbedding.weight` and `LearnedPositionalEmbedding.weight` are `nn.Parameter` — exactly like attention weights, MLP weights, LN γ/β. They start as random Gaussian noise (`N(0, 0.02)` per GPT-2 init) and are updated by AdamW via standard backprop, jointly with the rest of the model.
+
+**No pre-training, no hand-engineering.** We don't load word2vec or GloVe or anything. Both matrices start as noise; the next-token-prediction loss is the only training signal.
+
+**Param share at 124M (vocab=50257, n_embd=768, block_size=1024):**
+| Component | Params | Share |
+|---|--:|--:|
+| TokenEmbedding | 38.6M | **31%** |
+| LearnedPositionalEmbedding | 0.79M | 0.6% |
+| 12 transformer blocks | ~85M | ~68% |
+
+About a third of the entire model is just the token lookup table.
+
+### What learning produces
+- **Token rows** end up encoding **semantic similarity**: tokens with similar context (king/queen, cat/dog) get similar vectors. The classic "king − man + woman ≈ queen" property emerges from learned embeddings.
+- **Position rows** end up encoding **smooth position structure**: nearby positions are nearby in D-space; far positions are distinguishable. Exact structure is opaque but visualizable.
+
+### Weight tying (preview for `gpt.py`)
+GPT-2 uses the **same `(vocab_size, n_embd)` matrix in two places**:
+- Input: token id → vector (token_emb).
+- Output: hidden vector → logits over vocab (lm_head, the matrix transposed).
+
+```python
+self.lm_head = nn.Linear(D, vocab, bias=False)
+self.lm_head.weight = self.token_emb.weight   # tied — same Parameter object
+```
+
+Forces the model to use the same representation for "what this token looks like (input)" and "what we'd predict for this token (output)." Saves 38.6M params. Works better empirically. The `weight` property on `TokenEmbedding` exists specifically to make this line work.
+
+### Open questions
+- Why is sum the right combination, not concat? Concat would burn capacity (D split between content and position). Sum is cheaper and works.
+- Could we initialize positional embeddings to zero? Probably fine — the model just learns them from scratch.
+- What about pretrained embeddings (like GloVe)? Possible but no longer common — modern LMs train from scratch because joint training with the LM objective outperforms frozen pretrained embeddings.
+
+**Your notes:**
+
+---
+
 ## Cheat sheet: numbers worth memorizing
 
 | Name | Value | Where it appears |
