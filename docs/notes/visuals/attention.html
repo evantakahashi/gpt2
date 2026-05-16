@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attention — interactive walkthrough</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --muted: #6b7280;
+    --text: #e5e7eb;
+    --accent: #60a5fa;
+    --q: #60a5fa;      /* blue */
+    --k: #fbbf24;      /* amber */
+    --v: #34d399;      /* green */
+    --score: #c084fc;  /* purple */
+    --grid: #2a2f3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    max-width: 1400px; margin-left: auto; margin-right: auto;
+  }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  h2 { margin: 32px 0 8px; font-size: 18px; color: var(--accent); border-bottom: 1px solid var(--grid); padding-bottom: 6px; }
+  h3 { margin: 18px 0 6px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  p { color: #cbd5e1; }
+  .sub { color: var(--muted); margin-bottom: 24px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--grid); border-radius: 12px;
+    padding: 20px;
+  }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .step { margin-top: 28px; }
+  .controls { display: flex; gap: 12px; align-items: center; margin: 10px 0; }
+  button {
+    background: #1e2330; color: var(--text); border: 1px solid var(--grid);
+    border-radius: 6px; padding: 7px 12px; cursor: pointer; font: inherit;
+  }
+  button:hover { background: #242a39; }
+  button.active { background: rgba(96, 165, 250, 0.2); border-color: var(--accent); }
+
+  .matrix { display: inline-block; }
+  .matrix-label { color: var(--muted); font-size: 12px; margin-bottom: 6px; font-family: ui-monospace, Menlo, monospace; }
+  .matrix-cells { display: grid; gap: 3px; }
+  .cell {
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--grid); border-radius: 3px;
+    font-variant-numeric: tabular-nums; font-size: 11px;
+    transition: background 0.2s, outline 0.2s;
+    cursor: default;
+  }
+  .cell.editable { cursor: text; }
+  .cell input {
+    width: 100%; height: 100%; background: transparent; border: none; color: inherit;
+    text-align: center; font: inherit; outline: none;
+  }
+  .cell.dim-q { background: rgba(96, 165, 250, 0.08); }
+  .cell.dim-k { background: rgba(251, 191, 36, 0.08); }
+  .cell.dim-v { background: rgba(52, 211, 153, 0.08); }
+  .cell.score { font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+  .cell.highlight-row { outline: 2px solid var(--accent); outline-offset: 1px; z-index: 1; }
+  .cell.highlight-col { outline: 2px solid #f472b6; outline-offset: 1px; z-index: 1; }
+  .formula {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: #0b0d12; border: 1px solid var(--grid); border-radius: 6px;
+    padding: 10px 14px; margin: 10px 0; color: #cbd5e1; font-size: 13px;
+    display: inline-block;
+  }
+  .legend { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .legend .sw { display: inline-block; width: 14px; height: 10px; border-radius: 2px; vertical-align: middle; margin-right: 6px; border: 1px solid var(--grid); }
+  .note { color: var(--muted); font-size: 12px; margin-top: 8px; line-height: 1.5; }
+  .token-bar {
+    display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0;
+  }
+  .token-pill {
+    padding: 3px 10px; background: #1e2330; border: 1px solid var(--grid); border-radius: 999px;
+    font-size: 12px; font-family: ui-monospace, Menlo, monospace;
+  }
+  .token-pill.q-focus { background: rgba(96, 165, 250, 0.2); border-color: var(--accent); color: var(--accent); }
+  details summary { cursor: pointer; color: var(--accent); margin-top: 12px; }
+  code { background: #0b0d12; padding: 1px 5px; border-radius: 3px; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+  .flow-arrow {
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 18px; margin: 0 8px;
+  }
+  table.scoreboard { border-collapse: collapse; margin: 10px 0; }
+  table.scoreboard td, table.scoreboard th {
+    border: 1px solid var(--grid); padding: 4px 10px; font-size: 12px;
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  table.scoreboard th { background: #1e2330; color: var(--muted); font-weight: 500; }
+  .compact { padding: 12px 16px; }
+</style>
+</head>
+<body>
+
+<h1>Attention — interactive walkthrough</h1>
+<div class="sub">
+  Small example: <code>T = 4</code> tokens, <code>D = 8</code> input dim, <code>d_head = 4</code>. One attention head.
+  Edit input tokens or projection weights below — all downstream matrices recompute live.
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0">The whole thing in one picture</h2>
+<pre style="font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #cbd5e1; line-height: 1.5; margin: 0;">
+   input x       (T, D)
+      │
+      │ three independent learned linear projections
+      ▼
+   ┌────┐  ┌────┐  ┌────┐
+   │ Q  │  │ K  │  │ V  │     each shape (T, d_head)
+   └─┬──┘  └─┬──┘  └─┬──┘
+     │       │       │
+     │       │       │   step ①    scores = Q · K^T            (T, T)
+     └───┬───┘       │   step ②    scores = scores / √d_head
+         │           │   step ③    scores += causal mask       (upper-triangle = −∞)
+         ▼           │   step ④    weights = softmax(scores)   (rows sum to 1)
+      ┌─────┐        │
+      │  A  │        │
+      └─┬───┘        │
+        │            │
+        └────┬───────┘   step ⑤    output  = weights · V       (T, d_head)
+             ▼
+          ┌──────┐
+          │ out  │       step ⑥    output projection (linear) back to (T, D)
+          └──────┘
+</pre>
+</div>
+
+<h2>Step 0. The input — 4 tokens, each a D=8 vector</h2>
+<div class="panel">
+  <p>Imagine these are token embeddings after the embedding lookup + positional embedding addition. Each row is one token's D=8 vector. <b>You can edit these.</b></p>
+  <div class="token-bar" id="token-bar"></div>
+  <div id="input-matrix"></div>
+  <div class="controls" style="margin-top: 14px;">
+    <button id="rand-x">Randomize input</button>
+    <button id="rand-w">Randomize W_Q, W_K, W_V</button>
+    <button id="reset-all">Reset</button>
+  </div>
+  <div class="note">Realistic D = 768. We use D=8 here so you can see every number.</div>
+</div>
+
+<h2>Step 1. Project x into Q, K, V</h2>
+<div class="panel">
+  <p>Three learned linear maps: <code>W_Q, W_K, W_V</code>, each shape <code>(D, d_head)</code>. We apply them to every token:</p>
+  <div class="formula">Q = x @ W_Q     K = x @ W_K     V = x @ W_V</div>
+  <p class="note">Output shapes: each of Q, K, V is <code>(T, d_head) = (4, 4)</code>.</p>
+
+  <div class="row" style="margin-top: 14px;">
+    <div>
+      <div class="matrix-label" style="color: var(--q);">W_Q  (D=8, d_head=4)</div>
+      <div id="wq-matrix"></div>
+    </div>
+    <div>
+      <div class="matrix-label" style="color: var(--k);">W_K  (D=8, d_head=4)</div>
+      <div id="wk-matrix"></div>
+    </div>
+    <div>
+      <div class="matrix-label" style="color: var(--v);">W_V  (D=8, d_head=4)</div>
+      <div id="wv-matrix"></div>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top: 18px;">
+    <div>
+      <div class="matrix-label" style="color: var(--q);">Q = x @ W_Q  (T=4, d_head=4)</div>
+      <div id="q-matrix"></div>
+    </div>
+    <div>
+      <div class="matrix-label" style="color: var(--k);">K = x @ W_K  (T=4, d_head=4)</div>
+      <div id="k-matrix"></div>
+    </div>
+    <div>
+      <div class="matrix-label" style="color: var(--v);">V = x @ W_V  (T=4, d_head=4)</div>
+      <div id="v-matrix"></div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top: 14px;">
+    Each <b>row</b> of Q, K, V corresponds to one token. Token i's query is Q[i], its key is K[i], its value is V[i].
+    Q, K, V are NOT three copies of x — they're three different learned views of x.
+  </div>
+</div>
+
+<h2>Step 2. Attention scores: Q · K<sup>T</sup></h2>
+<div class="panel">
+  <p>We compute, for every pair of positions <code>(i, j)</code>, how relevant token j is to token i:</p>
+  <div class="formula">scores[i, j] = Q[i] · K[j]    (a single number, the dot product)</div>
+  <p>That's <code>T × T</code> dot products, computed efficiently as one matmul:</p>
+  <div class="formula">scores = Q @ K<sup>T</sup>     shape (T, T)</div>
+
+  <div class="controls">
+    <span class="note" style="margin: 0;">Click a row to highlight "token <span class="token-pill q-focus" style="padding:1px 8px;font-size:11px;">i</span> looking at all tokens":</span>
+    <span id="row-buttons"></span>
+  </div>
+
+  <div class="row">
+    <div>
+      <div class="matrix-label" style="color: var(--score);">scores = Q @ K<sup>T</sup>  (T, T)</div>
+      <div id="scores-matrix"></div>
+    </div>
+    <div style="flex:1; min-width: 280px;">
+      <h3>What the highlighted row says</h3>
+      <div id="row-readout" class="note" style="font-size: 13px;">Click a row above.</div>
+    </div>
+  </div>
+
+  <div class="note" style="margin-top: 10px;">
+    Higher score = token i's query is more aligned with token j's key. The model has learned <code>W_Q, W_K</code> such that "tokens we should attend to" produce high inner products.
+  </div>
+</div>
+
+<h2>Step 3. Scale by √d<sub>head</sub></h2>
+<div class="panel">
+  <p>The raw scores grow in magnitude with <code>d_head</code> (because we sum <code>d_head</code> products in each dot product). If they're too big, softmax saturates and gradients vanish. Fix:</p>
+  <div class="formula">scaled = scores / √d_head    (d_head = 4 here, so divide by 2)</div>
+
+  <details>
+    <summary>Why exactly √d_head?</summary>
+    <p class="note">
+      If Q[i] and K[j] have entries with mean 0 and variance 1, their dot product has variance d_head (sum of d_head independent products of unit-variance things). To bring variance back to 1, divide by √d_head. Then softmax sees values whose scale doesn't depend on d_head — soft, not saturated.
+    </p>
+  </details>
+
+  <div class="row">
+    <div>
+      <div class="matrix-label" style="color: var(--score);">scaled = scores / √d_head  (T, T)</div>
+      <div id="scaled-matrix"></div>
+    </div>
+  </div>
+</div>
+
+<h2>Step 4. Causal mask — token i can only see tokens ≤ i</h2>
+<div class="panel">
+  <p>GPT is autoregressive: position i must predict using only positions 0..i. So we forbid attention to "future" positions by adding <code>−∞</code> to those score entries:</p>
+  <div class="formula">scaled[i, j] = −∞  whenever j > i</div>
+  <p>After softmax those become 0 attention weight.</p>
+
+  <div class="row">
+    <div>
+      <div class="matrix-label">causal mask (1 = keep, 0 = forbid)</div>
+      <div id="mask-matrix"></div>
+      <div class="note" style="margin-top: 6px;">Lower triangular ones. Row i = position i; column j = what position i is allowed to attend to.</div>
+    </div>
+    <div>
+      <div class="matrix-label" style="color: var(--score);">masked = scaled + (mask==0 ? −∞ : 0)</div>
+      <div id="masked-matrix"></div>
+    </div>
+  </div>
+</div>
+
+<h2>Step 5. Softmax — turn scores into a probability distribution</h2>
+<div class="panel">
+  <p>For each row of <code>masked</code>, take softmax:</p>
+  <div class="formula">weights[i, j] = exp(masked[i, j]) / Σ<sub>k</sub> exp(masked[i, k])</div>
+  <p>Each row now sums to 1. The <code>−∞</code> entries become exactly 0. Higher score → higher weight.</p>
+
+  <div class="row">
+    <div>
+      <div class="matrix-label" style="color: var(--score);">weights = softmax(masked, dim=-1)  (T, T)</div>
+      <div id="weights-matrix"></div>
+    </div>
+    <div style="flex:1; min-width: 280px;">
+      <h3>Row sums (sanity)</h3>
+      <table class="scoreboard" id="rowsum-table"></table>
+      <div class="note">Every row should sum to 1.000 — that's the softmax invariant.</div>
+    </div>
+  </div>
+</div>
+
+<h2>Step 6. Apply weights to V — the weighted sum (this is the key insight)</h2>
+<div class="panel">
+  <p>This is the part you were missing in your mental model. The output for token i is <b>NOT</b> a dot product with V — it's a <b>weighted sum of all V rows</b>, where weights come from step 5:</p>
+  <div class="formula">output[i] = Σ<sub>j</sub> weights[i, j] · V[j]    (a d_head-dim vector)</div>
+  <p>All T outputs at once:</p>
+  <div class="formula">output = weights @ V    shape (T, d_head)</div>
+
+  <div class="controls">
+    <span class="note" style="margin: 0;">Click an output row to see which V rows it's a weighted sum of:</span>
+    <span id="output-row-buttons"></span>
+  </div>
+
+  <div class="row">
+    <div>
+      <div class="matrix-label" style="color: var(--score);">weights  (T, T)</div>
+      <div id="weights-matrix-2"></div>
+    </div>
+    <div class="flow-arrow">×</div>
+    <div>
+      <div class="matrix-label" style="color: var(--v);">V  (T, d_head)</div>
+      <div id="v-matrix-2"></div>
+    </div>
+    <div class="flow-arrow">=</div>
+    <div>
+      <div class="matrix-label">output  (T, d_head)</div>
+      <div id="output-matrix"></div>
+    </div>
+  </div>
+
+  <div class="note" id="output-readout" style="margin-top: 14px;"></div>
+
+  <details>
+    <summary>Why a weighted sum and not a dot product?</summary>
+    <p class="note">
+      We want each output position to be a <em>combination</em> of the V vectors from all relevant input positions. A dot product would produce a scalar; we need a d_head-dim vector to pass to the next layer. The weighted sum mixes information from multiple V vectors in proportion to how relevant each was — that's the whole point of attention.
+    </p>
+  </details>
+</div>
+
+<h2>Step 7. Output projection back to D</h2>
+<div class="panel">
+  <p>In a multi-head setting we'd concatenate all heads' outputs back to D dim before this step. With one head, output is already <code>(T, d_head=4)</code> but the rest of the model expects <code>(T, D=8)</code>. So we project once more:</p>
+  <div class="formula">final = output @ W_o    W_o shape (d_head, D)    final shape (T, D)</div>
+  <p class="note">This is the <code>c_proj</code> in our codebase. We skip showing it here — it's just another linear and adds nothing conceptually new.</p>
+</div>
+
+<h2>What this is missing (you'll need it when implementing)</h2>
+<div class="panel">
+  <h3>Multi-head attention</h3>
+  <p class="note">Real GPT-2 uses <code>n_head = 12</code>. Instead of one big <code>(T, T)</code> attention with d_head=D, it splits D into 12 heads of d_head=64 each, runs attention in parallel for each, and concatenates the outputs back to D. In code: reshape Q, K, V into <code>(B, n_head, T, d_head)</code>; matmul becomes <code>(B, n_head, T, T)</code>; output is <code>(B, n_head, T, d_head)</code> → reshape to <code>(B, T, D)</code>.</p>
+
+  <h3>Batched inputs</h3>
+  <p class="note">We did one example here. In code there's an outer batch dim B; everything becomes 4-D tensors <code>(B, n_head, T, *)</code>.</p>
+
+  <h3>The combined QKV projection (GPT-2 fuses these)</h3>
+  <p class="note">GPT-2's implementation uses one big <code>nn.Linear(D, 3*D)</code> instead of three <code>(D, D)</code> linears. The output is then split into Q, K, V along the last dim. Same math, one matmul instead of three — faster.</p>
+
+  <h3>What you'll see in attention.py</h3>
+  <p class="note">The <code>forward</code> method you'll write does all of steps 1–7 in <em>vectorized</em> form, no Python loops. The math is exactly what you saw above; the difficulty is keeping the tensor shapes straight as you reshape for multi-head and back.</p>
+</div>
+
+<script>
+(() => {
+  const T = 4, D = 8, dh = 4;
+
+  // Deterministic seed values for predictability across reloads
+  const SEED_X = [
+    [ 0.2, -0.5,  0.8,  0.3, -0.1,  0.6, -0.4,  0.5],
+    [-0.3,  0.7,  0.1, -0.2,  0.9, -0.6,  0.4, -0.1],
+    [ 0.5, -0.2, -0.6,  0.8, -0.3,  0.1,  0.7, -0.4],
+    [-0.1,  0.3,  0.5, -0.7,  0.2,  0.8, -0.5,  0.6],
+  ];
+  function seedW() {
+    const arr = [];
+    let s = 1;
+    for (let i = 0; i < D; i++) {
+      arr.push([]);
+      for (let j = 0; j < dh; j++) {
+        s = (s * 1664525 + 1013904223) % 4294967296;
+        arr[i].push(((s >>> 0) / 4294967296 - 0.5) * 1.6);
+      }
+    }
+    return arr;
+  }
+  let X  = SEED_X.map(r => r.slice());
+  let WQ = seedW();
+  let WK = seedW();
+  let WV = seedW();
+
+  let highlightRow = null;          // for scores matrix
+  let highlightOutputRow = null;    // for output matrix
+
+  // --- math helpers ---
+  function matmul(A, B) {
+    const Ar = A.length, Ac = A[0].length, Bc = B[0].length;
+    const out = [];
+    for (let i = 0; i < Ar; i++) {
+      const row = [];
+      for (let j = 0; j < Bc; j++) {
+        let s = 0;
+        for (let k = 0; k < Ac; k++) s += A[i][k] * B[k][j];
+        row.push(s);
+      }
+      out.push(row);
+    }
+    return out;
+  }
+  function transpose(A) {
+    const R = A.length, C = A[0].length;
+    const out = [];
+    for (let j = 0; j < C; j++) {
+      const row = [];
+      for (let i = 0; i < R; i++) row.push(A[i][j]);
+      out.push(row);
+    }
+    return out;
+  }
+  function scale(A, s) { return A.map(r => r.map(v => v * s)); }
+  function softmaxRows(A) {
+    return A.map(row => {
+      const m = Math.max(...row);
+      const exps = row.map(v => Math.exp(v - m));
+      const s = exps.reduce((a, b) => a + b, 0);
+      return exps.map(e => e / s);
+    });
+  }
+  function causalMask(T_) {
+    const out = [];
+    for (let i = 0; i < T_; i++) {
+      const row = [];
+      for (let j = 0; j < T_; j++) row.push(j <= i ? 1 : 0);
+      out.push(row);
+    }
+    return out;
+  }
+  function maskApply(scaled, mask) {
+    return scaled.map((row, i) => row.map((v, j) => mask[i][j] === 1 ? v : -Infinity));
+  }
+  function rowSums(A) { return A.map(r => r.reduce((a, b) => a + b, 0)); }
+
+  // --- rendering ---
+  function colorFor(v, kind="scalar") {
+    if (!isFinite(v)) return "background: #1e2330; color: #6b7280;";
+    const a = Math.min(1, Math.abs(v) / 1.5);
+    if (v >= 0) return `background: rgba(52, 211, 153, ${0.05 + a*0.4}); color: var(--text);`;
+    return `background: rgba(248, 113, 113, ${0.05 + a*0.4}); color: var(--text);`;
+  }
+  function fmt(v, digits=2) {
+    if (v === -Infinity) return "−∞";
+    if (v === Infinity) return "+∞";
+    return v.toFixed(digits);
+  }
+
+  function renderMatrix(target, M, opts = {}) {
+    const {
+      cellW = 44, cellH = 26, editable = false, onEdit = null,
+      cellClass = "", colorize = true, digits = 2,
+      highlightedRows = [], highlightedCols = [],
+    } = opts;
+    target.innerHTML = "";
+    const grid = document.createElement("div");
+    grid.className = "matrix-cells";
+    grid.style.gridTemplateColumns = `repeat(${M[0].length}, ${cellW}px)`;
+    for (let i = 0; i < M.length; i++) {
+      for (let j = 0; j < M[i].length; j++) {
+        const c = document.createElement("div");
+        c.className = "cell " + cellClass;
+        c.style.width = cellW + "px";
+        c.style.height = cellH + "px";
+        if (colorize) c.setAttribute("style", c.getAttribute("style") + colorFor(M[i][j]));
+        if (highlightedRows.includes(i)) c.classList.add("highlight-row");
+        if (highlightedCols.includes(j)) c.classList.add("highlight-col");
+        if (editable) {
+          c.classList.add("editable");
+          const inp = document.createElement("input");
+          inp.type = "number"; inp.step = "0.1"; inp.value = fmt(M[i][j], digits);
+          inp.addEventListener("input", () => {
+            const v = parseFloat(inp.value);
+            if (!isNaN(v) && onEdit) onEdit(i, j, v);
+          });
+          c.appendChild(inp);
+        } else {
+          c.textContent = fmt(M[i][j], digits);
+        }
+        grid.appendChild(c);
+      }
+    }
+    target.appendChild(grid);
+  }
+
+  function renderAll() {
+    // Step 0: token pills + input matrix
+    const tb = document.getElementById("token-bar");
+    tb.innerHTML = "";
+    for (let i = 0; i < T; i++) {
+      const p = document.createElement("span");
+      p.className = "token-pill";
+      p.textContent = `token ${i}`;
+      tb.appendChild(p);
+    }
+    renderMatrix(document.getElementById("input-matrix"), X, {
+      cellW: 50, editable: true,
+      onEdit: (i, j, v) => { X[i][j] = v; renderAll(); },
+    });
+
+    // Step 1: weight matrices and Q/K/V
+    renderMatrix(document.getElementById("wq-matrix"), WQ, {
+      cellW: 46, editable: true, cellClass: "dim-q",
+      onEdit: (i, j, v) => { WQ[i][j] = v; renderAll(); },
+    });
+    renderMatrix(document.getElementById("wk-matrix"), WK, {
+      cellW: 46, editable: true, cellClass: "dim-k",
+      onEdit: (i, j, v) => { WK[i][j] = v; renderAll(); },
+    });
+    renderMatrix(document.getElementById("wv-matrix"), WV, {
+      cellW: 46, editable: true, cellClass: "dim-v",
+      onEdit: (i, j, v) => { WV[i][j] = v; renderAll(); },
+    });
+    const Q = matmul(X, WQ);
+    const K = matmul(X, WK);
+    const V = matmul(X, WV);
+    renderMatrix(document.getElementById("q-matrix"), Q, { cellW: 50, cellClass: "dim-q" });
+    renderMatrix(document.getElementById("k-matrix"), K, { cellW: 50, cellClass: "dim-k" });
+    renderMatrix(document.getElementById("v-matrix"), V, { cellW: 50, cellClass: "dim-v" });
+
+    // Step 2: scores
+    const scores = matmul(Q, transpose(K));
+    renderMatrix(document.getElementById("scores-matrix"), scores, {
+      cellW: 52, cellClass: "score",
+      highlightedRows: highlightRow !== null ? [highlightRow] : [],
+    });
+    renderRowButtons();
+
+    // Row readout
+    const readout = document.getElementById("row-readout");
+    if (highlightRow === null) {
+      readout.textContent = "Click a row above.";
+    } else {
+      const i = highlightRow;
+      const parts = scores[i].map((s, j) => `<b>score[${i},${j}]</b> = Q[${i}] · K[${j}] = ${fmt(s)}`);
+      readout.innerHTML =
+        `<b style="color: var(--accent);">Row ${i}</b> is "what token ${i} sees when looking at every token (including itself):"<br><br>` +
+        parts.join("<br>") +
+        `<br><br>High value → token ${i}'s query is well-aligned with that token's key → that token is "relevant" to token ${i}.`;
+    }
+
+    // Step 3: scaled
+    const scaled = scale(scores, 1 / Math.sqrt(dh));
+    renderMatrix(document.getElementById("scaled-matrix"), scaled, { cellW: 52, cellClass: "score" });
+
+    // Step 4: mask + masked
+    const mask = causalMask(T);
+    renderMatrix(document.getElementById("mask-matrix"), mask, { cellW: 38, colorize: false, digits: 0 });
+    const masked = maskApply(scaled, mask);
+    renderMatrix(document.getElementById("masked-matrix"), masked, { cellW: 52, cellClass: "score" });
+
+    // Step 5: softmax
+    const weights = softmaxRows(masked);
+    renderMatrix(document.getElementById("weights-matrix"), weights, { cellW: 52, cellClass: "score", digits: 3 });
+    const sums = rowSums(weights);
+    const rowsumT = document.getElementById("rowsum-table");
+    rowsumT.innerHTML = "<tr><th>row</th><th>sum</th></tr>";
+    for (let i = 0; i < T; i++) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>row ${i}</td><td>${sums[i].toFixed(3)}</td>`;
+      rowsumT.appendChild(tr);
+    }
+
+    // Step 6: weights, V, output
+    renderMatrix(document.getElementById("weights-matrix-2"), weights, { cellW: 50, cellClass: "score", digits: 3 });
+    renderMatrix(document.getElementById("v-matrix-2"), V, {
+      cellW: 50, cellClass: "dim-v",
+      highlightedRows: highlightOutputRow !== null
+        ? weights[highlightOutputRow].map((w, j) => w > 0.01 ? j : -1).filter(j => j >= 0)
+        : [],
+    });
+    const output = matmul(weights, V);
+    renderMatrix(document.getElementById("output-matrix"), output, {
+      cellW: 50,
+      highlightedRows: highlightOutputRow !== null ? [highlightOutputRow] : [],
+    });
+    renderOutputRowButtons();
+
+    const outRead = document.getElementById("output-readout");
+    if (highlightOutputRow === null) {
+      outRead.textContent = "Click an output row to see the weighted sum it represents.";
+    } else {
+      const i = highlightOutputRow;
+      const w = weights[i];
+      const parts = w.map((wj, j) =>
+        wj > 0.0001
+          ? `${wj.toFixed(3)} · V[${j}]`
+          : null
+      ).filter(Boolean).join("  +  ");
+      outRead.innerHTML =
+        `<b style="color: var(--accent);">output[${i}]</b> = ` + parts +
+        `<br><br>Note that for row ${i}, weights at j > ${i} are 0 (causal mask blocked them), so only V[0..${i}] contribute.`;
+    }
+  }
+
+  function renderRowButtons() {
+    const box = document.getElementById("row-buttons");
+    box.innerHTML = "";
+    for (let i = 0; i < T; i++) {
+      const b = document.createElement("button");
+      b.textContent = `row ${i}`;
+      if (highlightRow === i) b.classList.add("active");
+      b.addEventListener("click", () => {
+        highlightRow = (highlightRow === i ? null : i);
+        renderAll();
+      });
+      box.appendChild(b);
+    }
+  }
+
+  function renderOutputRowButtons() {
+    const box = document.getElementById("output-row-buttons");
+    box.innerHTML = "";
+    for (let i = 0; i < T; i++) {
+      const b = document.createElement("button");
+      b.textContent = `output ${i}`;
+      if (highlightOutputRow === i) b.classList.add("active");
+      b.addEventListener("click", () => {
+        highlightOutputRow = (highlightOutputRow === i ? null : i);
+        renderAll();
+      });
+      box.appendChild(b);
+    }
+  }
+
+  function randNorm() {
+    const u = Math.random(), v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+  function randMat(R, C, scale=0.7) {
+    const out = [];
+    for (let i = 0; i < R; i++) {
+      const row = [];
+      for (let j = 0; j < C; j++) row.push(Math.round(randNorm() * scale * 100) / 100);
+      out.push(row);
+    }
+    return out;
+  }
+
+  document.getElementById("rand-x").addEventListener("click", () => { X = randMat(T, D, 0.5); renderAll(); });
+  document.getElementById("rand-w").addEventListener("click", () => {
+    WQ = randMat(D, dh, 0.7);
+    WK = randMat(D, dh, 0.7);
+    WV = randMat(D, dh, 0.7);
+    renderAll();
+  });
+  document.getElementById("reset-all").addEventListener("click", () => {
+    X = SEED_X.map(r => r.slice());
+    WQ = seedW(); WK = seedW(); WV = seedW();
+    highlightRow = null; highlightOutputRow = null;
+    renderAll();
+  });
+
+  renderAll();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,1538 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attention — study guide for the flight</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --muted: #6b7280;
+    --text: #e5e7eb;
+    --accent: #60a5fa;
+    --q: #60a5fa;
+    --k: #fbbf24;
+    --v: #34d399;
+    --score: #c084fc;
+    --grid: #2a2f3a;
+    --warn: #f87171;
+    --ok: #34d399;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px;
+    background: var(--bg); color: var(--text);
+    font: 14.5px/1.65 ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    max-width: 1100px; margin-left: auto; margin-right: auto;
+  }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  h2 {
+    margin: 36px 0 10px; font-size: 19px; color: var(--accent);
+    border-bottom: 1px solid var(--grid); padding-bottom: 6px;
+  }
+  h3 { margin: 22px 0 8px; font-size: 15px; color: #e5e7eb; }
+  h4 { margin: 16px 0 6px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  p, li { color: #d1d5db; }
+  .sub { color: var(--muted); margin-bottom: 20px; font-size: 14px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--grid); border-radius: 10px;
+    padding: 18px 22px; margin: 14px 0;
+  }
+  .panel.tight { padding: 12px 18px; }
+  code, pre, .mono {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  code { background: #0b0d12; padding: 1.5px 5px; border-radius: 3px; font-size: 13.5px; }
+  pre {
+    background: #0b0d12; border: 1px solid var(--grid); border-radius: 6px;
+    padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.55;
+    color: #cbd5e1;
+  }
+  table { border-collapse: collapse; margin: 10px 0; }
+  th, td { border: 1px solid var(--grid); padding: 6px 12px; font-size: 13px; text-align: left; vertical-align: top; }
+  th { background: #1e2330; color: var(--muted); font-weight: 500; }
+  td.shape { font-family: ui-monospace, Menlo, monospace; color: var(--accent); white-space: nowrap; }
+  td.shape.q { color: var(--q); }
+  td.shape.k { color: var(--k); }
+  td.shape.v { color: var(--v); }
+  td.shape.score { color: var(--score); }
+  td.note { color: var(--muted); font-size: 12.5px; }
+
+  .toc {
+    background: var(--panel); border: 1px solid var(--grid); border-radius: 8px;
+    padding: 16px 22px; margin: 10px 0 30px;
+  }
+  .toc ol { margin: 6px 0; padding-left: 20px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  details {
+    background: #1a1f2a; border: 1px solid var(--grid); border-radius: 6px;
+    padding: 10px 14px; margin: 10px 0;
+  }
+  details summary {
+    cursor: pointer; color: var(--accent); font-weight: 500;
+    list-style: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--muted); }
+  details[open] summary::before { content: "▾ "; }
+  details > *:not(summary) { margin-top: 10px; }
+
+  .callout {
+    border-left: 3px solid var(--accent); padding: 8px 14px; margin: 12px 0;
+    background: rgba(96, 165, 250, 0.06);
+  }
+  .callout.warn { border-left-color: var(--warn); background: rgba(248, 113, 113, 0.05); }
+  .callout.ok   { border-left-color: var(--ok);   background: rgba(52, 211, 153, 0.05); }
+
+  .chip {
+    display: inline-block; padding: 2px 9px; background: #1e2330;
+    border: 1px solid var(--grid); border-radius: 999px;
+    font-size: 11px; font-family: ui-monospace, Menlo, monospace;
+    margin: 0 2px;
+  }
+  .chip.q { color: var(--q); border-color: var(--q); }
+  .chip.k { color: var(--k); border-color: var(--k); }
+  .chip.v { color: var(--v); border-color: var(--v); }
+  .chip.score { color: var(--score); border-color: var(--score); }
+
+  hr { border: none; border-top: 1px solid var(--grid); margin: 28px 0; }
+
+  ul.checklist { list-style: none; padding-left: 0; }
+  ul.checklist li {
+    padding: 6px 0 6px 28px; position: relative;
+  }
+  ul.checklist li::before {
+    content: "☐"; position: absolute; left: 0; color: var(--muted);
+    font-size: 18px; line-height: 1;
+  }
+
+  .footer-nav { text-align: center; color: var(--muted); margin-top: 32px; font-size: 12px; }
+  .countdown { color: var(--accent); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<h1>Attention — study guide for the flight</h1>
+<div class="sub">
+  ≈ 60 minutes of focused reading + exercises. Skim sections you already know.
+  Mostly text, with worked examples. The interactive walkthrough is in
+  <code>attention.html</code> — keep that open in another tab for visual reference.
+</div>
+
+<div class="toc">
+  <h3 style="margin-top: 0;">Plan for the hour (attention)</h3>
+  <ol>
+    <li>5 min — <a href="#recap">Recap of single-head attention</a></li>
+    <li>10 min — <a href="#multihead">Multi-head: the core idea</a></li>
+    <li>15 min — <a href="#shapes">The shape gauntlet (the hardest part)</a></li>
+    <li>5 min — <a href="#qkv">The combined QKV projection trick</a></li>
+    <li>10 min — <a href="#mask">Causal mask: from theory to code</a></li>
+    <li>10 min — <a href="#forward">Annotated forward-pass skeleton</a></li>
+    <li>10 min — <a href="#exercises">Practice exercises</a></li>
+    <li>5 min — <a href="#pitfalls">Common pitfalls + self-check</a></li>
+  </ol>
+  <h3 style="margin-top: 20px;">If you finish early (next steps in Step 2)</h3>
+  <ol start="9">
+    <li>10 min — <a href="#mlp">MLP — the other half of a block</a></li>
+    <li>15 min — <a href="#block">Block — residual stream + Pre-LN wiring</a></li>
+    <li>15 min — <a href="#gpt">GPT assembly — stacking, weight tying, init</a></li>
+    <li>5 min — <a href="#loss">Loss + the Step 2 smoke test</a></li>
+    <li>5 min — <a href="#roadmap">Roadmap: what comes after Step 2</a></li>
+  </ol>
+  <h3 style="margin-top: 20px;">Part III — Step 3 (training step shapes)</h3>
+  <ol start="14">
+    <li>10 min — <a href="#trainstep">The training step at a glance</a></li>
+    <li>10 min — <a href="#celoss">Cross-entropy loss — the flatten trick</a></li>
+    <li>15 min — <a href="#grads">Backward pass — what gradients exist</a></li>
+    <li>10 min — <a href="#accum">Gradient accumulation</a></li>
+    <li>5 min — <a href="#clip">Gradient clipping</a></li>
+    <li>15 min — <a href="#adamw">AdamW — state shapes + parameter groups</a></li>
+    <li>10 min — <a href="#bf16">Mixed precision (bf16) — which tensors are which dtype</a></li>
+    <li>5 min — <a href="#lr">LR schedule — the only "shape" is a scalar curve</a></li>
+    <li>10 min — <a href="#trainpseudo">Annotated train-loop pseudocode</a></li>
+    <li>10 min — <a href="#mem">Memory accounting</a></li>
+  </ol>
+  <p class="sub" style="margin: 12px 0 0;">Total content ≈ 200 min. Pace yourself; come back to it. The Step 3 sections will make the most sense once Step 2 is in the rear-view.</p>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="recap">1. Recap of single-head attention</h2>
+
+<div class="panel">
+  <p>You've done this with the interactive page. Single-head attention takes <code>x ∈ (T, D)</code> and produces <code>out ∈ (T, D)</code> (single example, no batch dim). The steps:</p>
+
+  <pre>
+Q = x @ W_Q                          # (T, d_head)   where d_head = D for single head
+K = x @ W_K                          # (T, d_head)
+V = x @ W_V                          # (T, d_head)
+
+scores = Q @ K.T                     # (T, T)
+scaled = scores / sqrt(d_head)
+masked = scaled.masked_fill(future, -inf)
+weights = softmax(masked, dim=-1)    # (T, T), each row sums to 1
+out = weights @ V                    # (T, d_head)
+out = out @ W_o                      # (T, D), output projection</pre>
+
+  <div class="callout">
+    The first formula is the entire idea: <b>each output is a weighted sum of all V vectors, where the weights are determined by how well Q matches K.</b>
+  </div>
+
+  <h4>Quick self-test</h4>
+  <details>
+    <summary>For T=4 tokens, how many dot products are computed in <code>Q @ K.T</code>?</summary>
+    <p>T × T = 16. Each entry <code>(i, j)</code> of the score matrix is one dot product <code>Q[i] · K[j]</code>.</p>
+  </details>
+  <details>
+    <summary>Without the causal mask, would the model still work?</summary>
+    <p>It would still train, but every position would see future tokens during training. Since the loss function asks "predict t<sub>i+1</sub> given x[0..i]", letting the model see x[i+1] during this prediction means it could just copy → trivial 0 loss, no learning. Causal mask is essential for the LM objective.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="multihead">2. Multi-head attention — the core idea</h2>
+
+<div class="panel">
+  <p>So far we've done one set of <code>W_Q, W_K, W_V</code> projections, each producing <code>d_head = D = 768</code> dim vectors. Multi-head replaces that one "big" attention with several "small" attentions running in parallel:</p>
+
+  <ul>
+    <li>Split <code>D = 768</code> into <code>n_head = 12</code> heads of <code>d_head = 64</code> each.</li>
+    <li>Each head has its own <code>W_Q^{(h)}, W_K^{(h)}, W_V^{(h)}</code>, each shape <code>(D, d_head)</code>.</li>
+    <li>Each head runs attention independently → produces <code>(T, d_head)</code>.</li>
+    <li>Concatenate all heads' outputs along the feature dim → <code>(T, n_head × d_head) = (T, D)</code>.</li>
+    <li>Apply a final output projection <code>W_o</code>: <code>(D, D)</code>.</li>
+  </ul>
+
+  <h3>Why bother?</h3>
+  <p>Different heads can specialize. One head might attend to syntactic dependencies; another to coreference; another to content similarity. In a single big head, the model would need one set of weights to satisfy all those simultaneously. With multiple heads, each can specialize on something different. <b>Same total parameter count</b>, much more expressive.</p>
+
+  <p>(There's a parameter accounting subtlety: the per-head projections each have <code>D × d_head</code> params, and there are <code>n_head</code> of them, so total params for Q is <code>D × d_head × n_head = D × D</code>. Same as one big projection. The expressivity gain comes from the <i>independent softmax per head</i>, which a single big head can't replicate.)</p>
+
+  <h3>The clever implementation trick</h3>
+  <p>You don't loop over heads. Instead you do <b>one</b> big projection with <code>n_head × d_head = D</code> output dim, then <b>reshape</b> the result so the head dim splits out as its own axis. After reshape, all your matmuls "auto-vectorize" across heads.</p>
+
+  <p>The whole thing fits in ~10 lines of forward code if you get the reshapes right.</p>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="shapes">3. The shape gauntlet (this is where bugs live)</h2>
+
+<div class="panel">
+  <p>For the rest of this section assume:</p>
+  <ul>
+    <li><code>B = 2</code> (batch size)</li>
+    <li><code>T = 4</code> (sequence length)</li>
+    <li><code>D = 8</code> (embedding dim) — in real GPT-2 this is 768</li>
+    <li><code>n_head = 2</code> (number of heads) — real: 12</li>
+    <li><code>d_head = D / n_head = 4</code> — real: 64</li>
+  </ul>
+
+  <p>Every step's shape, with the operation that produces it:</p>
+
+  <table>
+    <tr><th>Step</th><th>Operation</th><th>Shape</th></tr>
+    <tr><td>0</td><td>Input <code>x</code></td><td class="shape">(B, T, D) = (2, 4, 8)</td></tr>
+    <tr><td>1</td><td><code>qkv = c_attn(x)</code> where <code>c_attn = nn.Linear(D, 3*D)</code></td><td class="shape">(B, T, 3*D) = (2, 4, 24)</td></tr>
+    <tr><td>2a</td><td>split into <code>q, k, v</code> along last dim</td><td class="shape q">(B, T, D) each</td></tr>
+    <tr><td>2b</td><td>reshape each: <code>.view(B, T, n_head, d_head)</code></td><td class="shape q">(B, T, n_head, d_head) = (2, 4, 2, 4)</td></tr>
+    <tr><td>2c</td><td>transpose: <code>.transpose(1, 2)</code> so head dim moves before T</td><td class="shape q">(B, n_head, T, d_head) = (2, 2, 4, 4)</td></tr>
+    <tr><td>3</td><td>scores = <code>q @ k.transpose(-2, -1)</code></td><td class="shape score">(B, n_head, T, T) = (2, 2, 4, 4)</td></tr>
+    <tr><td>4</td><td>scale: <code>scores / sqrt(d_head)</code></td><td class="shape score">(B, n_head, T, T)</td></tr>
+    <tr><td>5</td><td>apply causal mask</td><td class="shape score">(B, n_head, T, T)</td></tr>
+    <tr><td>6</td><td>softmax over last dim</td><td class="shape score">(B, n_head, T, T)</td></tr>
+    <tr><td>7</td><td>weighted sum: <code>weights @ v</code></td><td class="shape v">(B, n_head, T, d_head)</td></tr>
+    <tr><td>8a</td><td>transpose back: <code>.transpose(1, 2)</code></td><td class="shape">(B, T, n_head, d_head)</td></tr>
+    <tr><td>8b</td><td>combine heads: <code>.contiguous().view(B, T, D)</code></td><td class="shape">(B, T, D) = (2, 4, 8)</td></tr>
+    <tr><td>9</td><td>output projection: <code>c_proj(out)</code> with <code>nn.Linear(D, D)</code></td><td class="shape">(B, T, D) = (2, 4, 8)</td></tr>
+  </table>
+
+  <h3>The two reshapes that trip everyone up</h3>
+
+  <h4>Step 2b → 2c: why two operations to "split heads"?</h4>
+  <p>You start with a tensor of shape <code>(B, T, D)</code>. The conceptual job is "split D into n_head groups." You'd think one <code>.view(B, T, n_head, d_head)</code> does it. <b>It does</b>, in terms of layout. But you also need the head dim to come <i>before</i> T so the per-head matrix multiplies work cleanly. That's the <code>.transpose(1, 2)</code> step — moving the head dim from position 2 to position 1.</p>
+
+  <p>Result: <code>(B, n_head, T, d_head)</code>. Now when you do <code>q @ k.transpose(-2, -1)</code>, PyTorch's batched matmul automatically does one matrix product per (B, n_head) combination — that's why we put those two leading dims first.</p>
+
+  <h4>Step 8: undoing the split</h4>
+  <p>After attention we have <code>(B, n_head, T, d_head)</code>. To get back to <code>(B, T, D)</code> we:</p>
+  <ol>
+    <li><code>.transpose(1, 2)</code> → <code>(B, T, n_head, d_head)</code>. Head dim back to position 2.</li>
+    <li><code>.contiguous().view(B, T, D)</code> → flatten the last two dims into D.</li>
+  </ol>
+  <p>The <code>.contiguous()</code> is needed because <code>.transpose()</code> doesn't physically reorder memory; it just changes strides. <code>.view()</code> requires contiguous storage. (Alternative: <code>.reshape()</code>, which silently does the contiguous call. Either works.)</p>
+
+  <div class="callout warn">
+    <b>This is the #1 source of bugs in handwritten attention.</b> If your shapes drift from the table above, the dot products will compute the wrong things and your loss will train to garbage. Add <code>assert</code> statements during development — they're cheap, and shape errors are silent killers.
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="qkv">4. The combined QKV projection trick</h2>
+
+<div class="panel">
+  <p>GPT-2 doesn't have three separate <code>nn.Linear(D, D)</code> layers for Q, K, V. It has <b>one</b> <code>nn.Linear(D, 3*D)</code> that outputs all three concatenated along the last dim.</p>
+
+  <pre>
+# Conceptually:
+Q = W_Q @ x;  K = W_K @ x;  V = W_V @ x       # three matmuls
+
+# Equivalent, but with one matmul:
+qkv = c_attn(x)              # (B, T, 3*D)
+q, k, v = qkv.split(D, dim=-1)   # each (B, T, D)</pre>
+
+  <p>Math is identical. Speed is faster (one matmul instead of three, especially on GPU where matmul launch overhead matters). PyTorch's <code>tensor.split</code> with chunk size <code>D</code> along the last dim cleanly slices it back.</p>
+
+  <p>Why <code>nn.Linear(D, 3*D)</code> instead of three separate ones?</p>
+  <ul>
+    <li><b>One fused matmul</b> beats three small ones on GPU.</li>
+    <li><b>Memory locality</b> — Q, K, V are produced contiguously and can stay in cache.</li>
+    <li>The output dim ordering doesn't matter — we name the slices Q, K, V purely by convention.</li>
+  </ul>
+
+  <div class="callout ok">
+    Implementation reminder: when you call <code>qkv.split(D, dim=-1)</code> on a tensor of shape <code>(B, T, 3*D)</code>, you get a tuple of three tensors of shape <code>(B, T, D)</code> each. Use tuple unpacking: <code>q, k, v = qkv.split(D, dim=-1)</code>.
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="mask">5. Causal mask — from theory to code</h2>
+
+<div class="panel">
+  <p>You know what the mask <i>is</i>: a lower-triangular matrix that forbids attention to future positions. Now: how to implement it cleanly.</p>
+
+  <h3>Storing the mask</h3>
+  <p>The mask is a <b>constant</b>, not a parameter. It doesn't change during training. PyTorch has a special mechanism for this: <code>self.register_buffer(name, tensor)</code>. A buffer:</p>
+  <ul>
+    <li>Lives on the same device as the module (auto-moved by <code>.to(device)</code>).</li>
+    <li>Is included in <code>state_dict</code> for checkpointing.</li>
+    <li>Has <b>no gradient</b> — it's not a learnable parameter.</li>
+  </ul>
+
+  <h3>What shape?</h3>
+  <p>You'll be applying the mask to a scores tensor of shape <code>(B, n_head, T, T)</code>. Broadcasting handles the B and n_head dims — they're the same mask for every batch element and every head. So the mask itself only needs the last two dims: <code>(T, T)</code>. But we usually pre-pad to <code>(1, 1, T_max, T_max)</code> so broadcasting is explicit:</p>
+
+  <pre>
+mask = torch.tril(torch.ones(block_size, block_size))     # (block_size, block_size)
+mask = mask.view(1, 1, block_size, block_size)            # (1, 1, block_size, block_size)
+self.register_buffer("causal_mask", mask)</pre>
+
+  <p>At forward time, slice it to the actual sequence length <code>T</code>:</p>
+  <pre>
+T = x.size(1)
+mask = self.causal_mask[:, :, :T, :T]    # (1, 1, T, T) — broadcasts over (B, n_head)</pre>
+
+  <h3>Two ways to apply the mask (functionally equivalent)</h3>
+
+  <p><b>Option A — additive with −∞:</b></p>
+  <pre>
+scores = scores.masked_fill(mask == 0, float("-inf"))    # forbidden positions become -inf
+weights = scores.softmax(dim=-1)                          # -inf becomes 0 after softmax</pre>
+
+  <p><b>Option B — multiplicative after softmax:</b></p>
+  <pre>
+weights = scores.softmax(dim=-1) * mask
+weights = weights / weights.sum(dim=-1, keepdim=True)     # renormalize</pre>
+
+  <p>Use Option A. It's standard, numerically stable, and skips the renormalize step. Option B is a teaching tool only.</p>
+
+  <h3>Why <code>−∞</code> specifically and not just a big negative number?</h3>
+  <details>
+    <summary>Click for the answer.</summary>
+    <p><code>softmax</code> works by computing <code>exp(score)</code>. We need the masked entries to produce <i>exactly</i> 0 weight after softmax. <code>exp(-inf) = 0</code> exactly. <code>exp(-1e9)</code> is also 0 in practice (underflows), but PyTorch's softmax is implemented to handle <code>-inf</code> specially — it doesn't run <code>exp()</code> on inf values at all, just zeros them out. Slightly cleaner.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="forward">6. Annotated forward-pass skeleton</h2>
+
+<div class="panel">
+  <p>This is the structure of what you'll write. <b>Not the actual code</b> — that's your job. But this lays out the operations in order with shape annotations. If you can fill in the blanks, you've implemented multi-head causal self-attention.</p>
+
+  <pre>
+def forward(self, x):
+    # ────────────────────────────────────────────────────────
+    # 1. Unpack shapes
+    # ────────────────────────────────────────────────────────
+    B, T, D = x.shape    # e.g. (2, 4, 8) in the toy; (B, T, 768) real
+
+    # ────────────────────────────────────────────────────────
+    # 2. Project to combined Q, K, V via one big linear
+    # ────────────────────────────────────────────────────────
+    qkv = ____(x)                       # shape: (B, T, 3*D)
+    q, k, v = ____.split(D, dim=-1)     # each: (B, T, D)
+
+    # ────────────────────────────────────────────────────────
+    # 3. Split into heads
+    #    For each of q, k, v: reshape (B, T, D) → (B, T, n_head, d_head)
+    #                          then transpose dims 1 and 2 → (B, n_head, T, d_head)
+    # ────────────────────────────────────────────────────────
+    q = q.____(B, T, self.n_head, self.d_head).____(1, 2)    # (B, n_head, T, d_head)
+    k = k.____(B, T, self.n_head, self.d_head).____(1, 2)
+    v = v.____(B, T, self.n_head, self.d_head).____(1, 2)
+
+    # ────────────────────────────────────────────────────────
+    # 4. Attention scores
+    # ────────────────────────────────────────────────────────
+    scores = q @ ____.transpose(-2, -1)                       # (B, n_head, T, T)
+    scores = scores / ____                                    # scale by 1 / sqrt(d_head)
+
+    # ────────────────────────────────────────────────────────
+    # 5. Causal mask
+    # ────────────────────────────────────────────────────────
+    mask = self.causal_mask[:, :, :T, :T]                     # (1, 1, T, T)
+    scores = scores.masked_fill(____, float("-inf"))
+
+    # ────────────────────────────────────────────────────────
+    # 6. Softmax + weighted sum
+    # ────────────────────────────────────────────────────────
+    weights = scores.softmax(dim=____)                        # (B, n_head, T, T)
+    out = weights @ ____                                      # (B, n_head, T, d_head)
+
+    # ────────────────────────────────────────────────────────
+    # 7. Combine heads back to (B, T, D)
+    # ────────────────────────────────────────────────────────
+    out = out.____(1, 2).____.____(B, T, D)
+    # ↑ transpose → contiguous → view
+
+    # ────────────────────────────────────────────────────────
+    # 8. Output projection
+    # ────────────────────────────────────────────────────────
+    return self.____(out)                                     # (B, T, D)</pre>
+
+  <details>
+    <summary>What goes in each blank? (Don't peek until you've tried.)</summary>
+    <pre>
+qkv = self.c_attn(x)
+q, k, v = qkv.split(D, dim=-1)
+
+q = q.view(B, T, n_head, d_head).transpose(1, 2)
+k = k.view(...)...
+v = v.view(...)...
+
+scores = q @ k.transpose(-2, -1)
+scores = scores / math.sqrt(self.d_head)
+
+scores = scores.masked_fill(mask == 0, float("-inf"))
+
+weights = scores.softmax(dim=-1)
+out = weights @ v
+
+out = out.transpose(1, 2).contiguous().view(B, T, D)
+
+return self.c_proj(out)</pre>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="exercises">7. Practice exercises</h2>
+
+<div class="panel">
+  <h3>Exercise 1 — Shape arithmetic</h3>
+  <p>For GPT-2 124M defaults: <code>B=64, T=1024, D=768, n_head=12</code>.</p>
+
+  <h4>(a) What is <code>d_head</code>?</h4>
+  <details>
+    <summary>Answer</summary>
+    <p><code>d_head = D / n_head = 768 / 12 = 64</code>.</p>
+  </details>
+
+  <h4>(b) After step 2c (reshape + transpose), what is the shape of <code>q</code>?</h4>
+  <details>
+    <summary>Answer</summary>
+    <p><code>(B, n_head, T, d_head) = (64, 12, 1024, 64)</code>.</p>
+  </details>
+
+  <h4>(c) After <code>scores = q @ k.transpose(-2, -1)</code>, what is the shape of <code>scores</code>?</h4>
+  <details>
+    <summary>Answer</summary>
+    <p><code>(B, n_head, T, T) = (64, 12, 1024, 1024)</code>. Note the T×T — this is the <b>attention pattern</b>, one for each (batch, head) combination. At 1024×1024 with fp32, this is a 4MB tensor PER (b, head) — 64 × 12 × 4MB ≈ 3GB. This is why long sequences are memory-heavy.</p>
+  </details>
+
+  <h4>(d) After step 8b (head combine), what shape is <code>out</code>?</h4>
+  <details>
+    <summary>Answer</summary>
+    <p>Back to <code>(B, T, D) = (64, 1024, 768)</code> — same as the input.</p>
+  </details>
+
+  <hr>
+
+  <h3>Exercise 2 — Causal mask</h3>
+  <p>For <code>T=5</code>, write out the lower-triangular causal mask as a 5×5 matrix of 1s and 0s.</p>
+  <details>
+    <summary>Answer</summary>
+    <pre>
+[ [1, 0, 0, 0, 0],
+  [1, 1, 0, 0, 0],
+  [1, 1, 1, 0, 0],
+  [1, 1, 1, 1, 0],
+  [1, 1, 1, 1, 1] ]</pre>
+    <p>Row i = position i. Column j = what position i is allowed to attend to. Row i has ones in columns 0..i.</p>
+  </details>
+
+  <p>For row 3 of that mask, after the <code>masked_fill</code>, what are the scores at positions 3 and 4?</p>
+  <details>
+    <summary>Answer</summary>
+    <p>Position 3 (i ≥ j is 3 ≥ 3 → kept) is the original score. Position 4 (i ≥ j is 3 ≥ 4 → false) becomes <code>-inf</code>. After softmax, position 4's weight is 0.</p>
+  </details>
+
+  <hr>
+
+  <h3>Exercise 3 — Apply the QKV split mentally</h3>
+  <p>You have <code>qkv</code> of shape <code>(2, 4, 24)</code> where <code>D = 8</code>. After <code>q, k, v = qkv.split(8, dim=-1)</code>, what is the shape of each?</p>
+  <details>
+    <summary>Answer</summary>
+    <p>Each is <code>(2, 4, 8)</code> — the 24-dim last axis got chunked into three 8-dim slices.</p>
+  </details>
+
+  <p>The three chunks correspond to which projections?</p>
+  <details>
+    <summary>Answer</summary>
+    <p>First 8 dims = Q, middle 8 = K, last 8 = V — purely by convention (we trained the model to use them this way). The underlying weight matrix doesn't "know" which row is which; we just decided the first D output dims are Q, etc.</p>
+  </details>
+
+  <hr>
+
+  <h3>Exercise 4 — Why does the matmul "auto-vectorize" across heads?</h3>
+  <p>After step 2c, <code>q</code> has shape <code>(B, n_head, T, d_head)</code> and <code>k.transpose(-2, -1)</code> has shape <code>(B, n_head, d_head, T)</code>. Why does <code>q @ k.transpose(-2, -1)</code> automatically produce one attention pattern per head?</p>
+  <details>
+    <summary>Answer</summary>
+    <p>PyTorch's <code>@</code> (matmul) treats all dimensions <b>except the last two</b> as "batch dimensions" and broadcasts/loops over them. So with operands of shape <code>(B, n_head, T, d_head)</code> and <code>(B, n_head, d_head, T)</code>, it performs <code>B × n_head</code> independent <code>(T, d_head) @ (d_head, T) → (T, T)</code> matmuls and stacks them. Result: <code>(B, n_head, T, T)</code>.</p>
+    <p>This is why we put <code>n_head</code> as a leading batch dim — so we get free per-head parallelism without a Python loop.</p>
+  </details>
+
+  <hr>
+
+  <h3>Exercise 5 — Trace the gradient back</h3>
+  <p>Suppose during training, the loss has gradient with respect to <code>out</code> (the final output of attention). Where does that gradient flow back to?</p>
+  <details>
+    <summary>Answer</summary>
+    <p>Through <code>c_proj</code> (its weight gets a gradient), through the head-combine reshape (no params, just rearranges grad), through the weighted-sum matmul (gradients flow back to both <code>weights</code> and <code>v</code>), through softmax (gradient through the softmax), through masked_fill (zero gradient at masked positions), through the scaling, through <code>q @ k.T</code> (gradient flows to both q and k), through the head-split reshape, through <code>c_attn</code> (its weight gets a gradient), all the way back to <code>x</code>.</p>
+    <p>Net effect: gradient updates <code>c_attn.weight</code>, <code>c_proj.weight</code>, and continues backward into the previous layer. The causal mask buffer has no gradient because it's a buffer, not a Parameter.</p>
+  </details>
+
+  <hr>
+
+  <h3>Exercise 6 — Memory cost of attention scales as T²</h3>
+  <p>For GPT-2 124M (n_head=12, B=8, fp32), what's the memory for the <code>scores</code> tensor when T = 1024 vs T = 4096?</p>
+  <details>
+    <summary>Answer</summary>
+    <p><code>scores</code> shape is <code>(B, n_head, T, T)</code>. Memory = B × n_head × T² × 4 bytes.</p>
+    <ul>
+      <li>T = 1024: 8 × 12 × 1024² × 4 = 384 MB</li>
+      <li>T = 4096: 8 × 12 × 4096² × 4 = 6.1 GB</li>
+    </ul>
+    <p>This is why long-context transformers are hard — attention memory grows quadratically with T. FlashAttention is one fix (it streams the softmax and avoids materializing the full scores tensor); RoPE-based positional encoding helps because it enables length extrapolation; etc.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="pitfalls">8. Common pitfalls + self-check</h2>
+
+<div class="panel">
+  <h3>Pitfalls (read these — most attention bugs are here)</h3>
+  <ul>
+    <li><b>Forgetting <code>.contiguous()</code> before <code>.view()</code>.</b> After a transpose, the tensor's memory layout is "strided," and <code>.view</code> will throw an error. Fix: call <code>.contiguous()</code> first, OR use <code>.reshape()</code> which does this internally.</li>
+
+    <li><b>Wrong order of reshape and transpose.</b> The pattern is <code>view(B, T, n_head, d_head)</code> then <code>transpose(1, 2)</code>. If you swap the two operations or use different dim numbers, you'll get a tensor that looks the right shape but has the wrong content. Bug will only show up as bad loss, not as a Python error.</li>
+
+    <li><b>Forgetting to transpose K before the matmul.</b> Scores are <code>Q @ K.T</code>, not <code>Q @ K</code>. The matmul wants <code>(T, d_head) @ (d_head, T) = (T, T)</code>.</li>
+
+    <li><b>Wrong scaling factor.</b> Divide by <code>sqrt(d_head)</code>, not <code>sqrt(D)</code>. (Easy to confuse when single-head, where d_head = D.)</li>
+
+    <li><b>Applying the mask AFTER softmax instead of before.</b> Mask must be additive before softmax (with −∞) so the forbidden positions get zero weight. Setting them to zero post-softmax requires renormalization.</li>
+
+    <li><b>Wrong dim in softmax.</b> Should be <code>dim=-1</code> — softmax over the columns of the (T, T) score matrix for each row. <code>dim=-2</code> softmaxes the wrong axis.</li>
+
+    <li><b>Reading the mask with the wrong slice.</b> The cached mask is <code>(1, 1, block_size, block_size)</code> but you need <code>(1, 1, T, T)</code>. <code>self.causal_mask[:, :, :T, :T]</code>.</li>
+
+    <li><b>Confusing <code>n_kv_heads</code> with <code>n_head</code> (GQA).</b> For paper-faithful MHA, ignore <code>n_kv_heads</code> entirely; set it equal to <code>n_head</code>. We'll implement GQA in Step 6.</li>
+  </ul>
+
+  <h3>Before you start writing, can you answer these?</h3>
+  <ul class="checklist">
+    <li>For an input <code>x</code> of shape <code>(B, T, D)</code>, what's the shape of <code>self.c_attn(x)</code>?</li>
+    <li>After splitting and reshaping for heads, what's the shape of <code>q</code>?</li>
+    <li>What's the shape of <code>scores = q @ k.transpose(-2, -1)</code>?</li>
+    <li>What numerical factor do we divide scores by?</li>
+    <li>How do we get the mask down to the right size for sequence length <code>T</code>?</li>
+    <li>What value do we fill masked positions with before softmax?</li>
+    <li>Along which dim do we softmax?</li>
+    <li>What two operations are needed to combine heads back to <code>(B, T, D)</code>?</li>
+    <li>What's the final output projection called in code?</li>
+  </ul>
+
+  <p>If any of these are fuzzy, re-read section 3 (shape gauntlet) and section 6 (skeleton). When all 9 are clear, you're ready to write the actual code.</p>
+
+  <div class="callout ok">
+    <b>Workflow when you sit down to implement:</b>
+    <ol>
+      <li>Open <code>src/nano_gpt/model/attention.py</code> in one tab, <code>tests/test_attention.py</code> in another (Claude will write the test).</li>
+      <li>Have <code>attention.html</code> + <code>attention_study.html</code> open for reference.</li>
+      <li>Write <code>__init__</code> first (the boilerplate Claude will scaffold). Then <code>forward</code> step by step, matching section 6's skeleton.</li>
+      <li>Add <code>assert q.shape == (B, n_head, T, d_head)</code> style checks during development. Remove before merging.</li>
+      <li>Run <code>pytest tests/test_attention.py -v</code>. The reference comparison test against <code>F.scaled_dot_product_attention</code> is the gold standard.</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="bonus">Bonus: things to ponder if you finish early</h2>
+
+<div class="panel">
+  <details>
+    <summary>What's <code>F.scaled_dot_product_attention</code> and why might we use it?</summary>
+    <p>PyTorch 2.0+ has a built-in fused implementation that does everything we're about to write — split heads, scale, mask, softmax, weighted sum — in one optimized kernel. It's also the entry point for FlashAttention-2 on supported GPUs. We'll add a <code>cfg.use_flash</code> flag in Step 5 that routes through this instead of our manual implementation. For now we hand-write it for learning; in production you'd always use the fused op.</p>
+  </details>
+
+  <details>
+    <summary>What changes for inference vs training?</summary>
+    <p>For training we always compute the full <code>(T, T)</code> attention. For inference (autoregressive generation), every new token only needs to attend to past tokens — the past tokens' K, V values don't change. So you cache them ("KV cache") and only compute the new query's attention against the cached K, V. This makes generation linear in past length instead of quadratic. We're not implementing this (per design spec), but real serving systems do.</p>
+  </details>
+
+  <details>
+    <summary>What does multi-head <i>actually</i> learn? Are heads interpretable?</summary>
+    <p>Sometimes. Researchers have found heads that specialize in: previous-token attention (always attend to position i-1), syntactic dependencies, coreference resolution, copying earlier tokens, etc. But many heads have no clean interpretation — they encode distributed representations across heads. Anthropic's "induction heads" paper is a famous example of a discovered interpretable head.</p>
+  </details>
+
+  <details>
+    <summary>Why don't we use ReLU between attention's QK matmul and the softmax?</summary>
+    <p>The softmax already provides the nonlinearity. The combination "softmax(QK.T)" is itself a learned function class. Adding ReLU between would either be redundant or would prevent softmax from producing valid probability distributions. The "linearity" of QK.T is a feature, not a bug.</p>
+  </details>
+
+  <details>
+    <summary>Could we replace softmax with something else?</summary>
+    <p>People have tried! "Linear attention" replaces softmax with a kernel feature map so attention becomes O(T) instead of O(T²). "Sparse attention" forbids most pairs upfront. None has fully replaced softmax for general-purpose LLMs — softmax's combination of "differentiable + outputs valid probabilities + numerically stable + works empirically" is hard to beat.</p>
+  </details>
+</div>
+
+<hr style="margin-top: 60px;">
+
+<h1 style="margin-top: 30px;">Part II — What comes after attention</h1>
+<div class="sub">
+  Once <code>attention.py</code> is done you'll write three more files to complete Step 2: <code>mlp.py</code>, <code>block.py</code>, <code>gpt.py</code>.
+  Each is much smaller than attention but introduces one or two important concepts. Read ahead so you know what's coming.
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="mlp">9. MLP — the other half of a block</h2>
+
+<div class="panel">
+  <p>Recall the "communication vs computation" framing. Attention does the communication (mixing across tokens). The <b>MLP</b> does the computation: each token processes its own information independently.</p>
+
+  <h3>The math (it's tiny)</h3>
+  <pre>
+def forward(self, x):                   # x: (B, T, D)
+    h = self.fc(x)                       # (B, T, 4*D)   ← expand
+    h = gelu(h)                          # elementwise nonlinearity
+    return self.proj(h)                  # (B, T, D)     ← project back</pre>
+
+  <p>That's it. Two linear layers with a GELU between. Three shape progression entries:</p>
+  <table>
+    <tr><th>Step</th><th>Operation</th><th>Shape</th></tr>
+    <tr><td>0</td><td>Input <code>x</code></td><td class="shape">(B, T, D)</td></tr>
+    <tr><td>1</td><td><code>fc = nn.Linear(D, 4*D)</code></td><td class="shape">(B, T, 4*D)</td></tr>
+    <tr><td>2</td><td>GELU (elementwise, no shape change)</td><td class="shape">(B, T, 4*D)</td></tr>
+    <tr><td>3</td><td><code>proj = nn.Linear(4*D, D)</code></td><td class="shape">(B, T, D)</td></tr>
+  </table>
+
+  <h3>Why 4× expansion?</h3>
+  <p>The hidden layer is <b>4× the embedding dim</b>. So for GPT-2 124M with D=768, the MLP's hidden is 3072. This is purely empirical — the original Transformer paper used 4× and it became the convention. Modern arches sometimes use different ratios (Llama uses ~2.67× with SwiGLU to keep param count similar).</p>
+  <p>Intuition: a non-linearity sandwiched between two linears is a "universal function approximator" given enough hidden capacity. Bigger hidden = more capacity. Too big and you waste params; too small and the block can't compute much. 4× is the sweet spot.</p>
+
+  <h3>Why GELU and not ReLU?</h3>
+  <p>GELU = <code>x · Φ(x)</code> where Φ is the Gaussian CDF. It's a smooth approximation to ReLU but with non-zero gradient for slightly-negative inputs.</p>
+  <ul>
+    <li>ReLU: gradient is 0 for x < 0 (the "dying ReLU" problem when many activations land in that regime).</li>
+    <li>GELU: gradient is small but nonzero for slightly-negative x, so all neurons keep getting gradient signal.</li>
+  </ul>
+  <p>Empirically GELU outperforms ReLU on transformers by a small but consistent margin. GPT-2 uses GELU, so we do too.</p>
+  <p>PyTorch has <code>nn.GELU()</code> built in. GPT-2 specifically used an "approximate" version called <code>tanh</code> approximation — set <code>approximate="tanh"</code> if you want exact GPT-2 match. The difference is tiny.</p>
+
+  <h3>What MLP <b>doesn't</b> do</h3>
+  <ul>
+    <li><b>It doesn't mix across tokens.</b> Each (b, t) feature vector is processed independently. The <code>nn.Linear</code>s only see the last dim D, not the T or B dims.</li>
+    <li><b>It doesn't see neighbors.</b> Position 5's MLP output depends only on position 5's input. (Compare to attention, where position 5's output depends on all earlier positions.)</li>
+    <li><b>It has no positional info of its own.</b> Just a plain feedforward applied per-token.</li>
+  </ul>
+
+  <h3>Param count</h3>
+  <p>MLP has <code>D × 4D + 4D × D = 8D²</code> params (ignoring biases). For D=768: <b>4.7M params per MLP × 12 blocks = 57M</b>. That's almost half of the entire 124M model. MLPs are where most of the parameters live.</p>
+  <div class="callout">
+    <b>Compare to attention:</b> per block, attention has 4D² (Q, K, V, output projections). MLP has 8D² — twice as many. Across 12 blocks: 48D² attention vs 96D² MLP. <b>MLPs dominate the param budget.</b>
+  </div>
+
+  <h3>What you'll write in mlp.py</h3>
+  <pre>
+class MLP(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        # two nn.Linear layers + GELU
+        # store with whatever names you like; c_fc and c_proj are GPT-2 convention
+
+    def forward(self, x):
+        # x: (B, T, D) → (B, T, 4*D) → GELU → (B, T, D)
+        # 3 lines of code</pre>
+
+  <h4>Try this before reading on</h4>
+  <details>
+    <summary>What's the FLOP count of one MLP forward pass for B=1, T=1024, D=768?</summary>
+    <p>Two matmuls. Each matmul of shape <code>(B*T, A) @ (A, C)</code> costs <code>2 × B × T × A × C</code> FLOPs (multiply-add).</p>
+    <ul>
+      <li>First matmul: <code>(1024, 768) @ (768, 3072)</code> → <code>2 × 1024 × 768 × 3072</code> ≈ 4.8 GFLOPs.</li>
+      <li>Second matmul: <code>(1024, 3072) @ (3072, 768)</code> → same ≈ 4.8 GFLOPs.</li>
+      <li>Total per MLP ≈ <b>9.6 GFLOPs</b>. Across 12 blocks ≈ 115 GFLOPs per token sequence.</li>
+    </ul>
+    <p>Compare attention's QK and AV matmuls — they're cheaper for T &lt; D, more expensive when T &gt; D. For real GPT-2 with T=1024, D=768, MLPs dominate FLOPs.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="block">10. Block — the residual stream + Pre-LN wiring</h2>
+
+<div class="panel">
+  <p>A "transformer block" wires together one attention sub-layer and one MLP sub-layer, with LayerNorm and residual connections. Sounds simple. The exact wiring matters — getting it right turns a hard-to-train model into a stable one.</p>
+
+  <h3>The residual stream — the single most important concept in transformer design</h3>
+
+  <p>Imagine a vector flowing through the model from input to output. We'll call this the <b>residual stream</b>. Every block doesn't <i>replace</i> the residual stream — it <b>adds to it</b>:</p>
+
+  <pre>
+x = embeddings(idx)        # initial residual stream
+x = x + attention(LN(x))   # block 1 attention sublayer
+x = x + mlp(LN(x))         # block 1 MLP sublayer
+x = x + attention(LN(x))   # block 2 attention sublayer
+x = x + mlp(LN(x))         # block 2 MLP sublayer
+...
+                           # 12 blocks total = 24 add-to-stream operations
+x = final_LN(x)
+logits = lm_head(x)</pre>
+
+  <p>The residual stream is just <code>x</code>. Each sub-layer reads from it (via the LN), computes something, and <b>writes back to it by addition</b>. The stream is a shared bus that every block contributes to and reads from.</p>
+
+  <h3>Why residual connections?</h3>
+  <ul>
+    <li><b>Gradient flow.</b> In a deeply stacked network without residuals, gradients can vanish/explode. With <code>x = x + f(x)</code>, the gradient w.r.t. the input has a direct "skip" path (the identity term) that doesn't depend on what's inside f. This is why ResNets work, and why transformers couldn't be 12 layers deep without them.</li>
+    <li><b>Feature reuse.</b> If a feature is already in the stream from an earlier block, later blocks can use it without recomputing. The model can be "shallow" for some features and "deep" for others — emergent layer specialization.</li>
+    <li><b>Easier optimization.</b> The default behavior of a sub-layer is "do nothing" (output 0 → x unchanged). Each block only has to learn small, focused additions to the stream. This is much easier than learning to transform the whole stream from scratch every block.</li>
+  </ul>
+
+  <h3>Pre-LN vs Post-LN — same components, different order</h3>
+
+  <p><b>Post-LN (original "Attention Is All You Need" 2017):</b></p>
+  <pre>
+x = LN(x + attention(x))
+x = LN(x + mlp(x))</pre>
+  <p>LayerNorm AFTER the residual add. Hard to train deep models — needs careful learning rate warmup, has known instabilities.</p>
+
+  <p><b>Pre-LN (GPT-2 and everything since):</b></p>
+  <pre>
+x = x + attention(LN(x))
+x = x + mlp(LN(x))</pre>
+  <p>LayerNorm BEFORE the sub-layer, residual added on the unnormalized stream. <b>The residual stream itself is never normalized in flight.</b> Each sub-layer sees a normalized input and writes a small addition to the stream.</p>
+
+  <p>Why does Pre-LN train better? With Post-LN, the residual stream grows in scale as it passes through blocks, and gradient magnitudes vary wildly across depths. With Pre-LN, the LayerNorm in front of each sub-layer means gradient flow is well-conditioned at every depth.</p>
+
+  <div class="callout">
+    <b>Mnemonic:</b> Pre-LN = "normalize before reading the stream, write back unchanged." Post-LN = "write back to the stream, then normalize the stream itself."
+  </div>
+
+  <h3>What you'll write in block.py</h3>
+
+  <pre>
+class Block(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.ln_1 = LayerNorm(cfg.n_embd, bias=cfg.bias)
+        self.attn = CausalSelfAttention(cfg)
+        self.ln_2 = LayerNorm(cfg.n_embd, bias=cfg.bias)
+        self.mlp = MLP(cfg)
+
+    def forward(self, x):
+        # x: (B, T, D)
+        x = x + self.attn(self.ln_1(x))         # attention sublayer
+        x = x + self.mlp(self.ln_2(x))          # MLP sublayer
+        return x</pre>
+
+  <p>Four module attributes; two lines of forward. The interesting thing is the <i>shape</i> of each line. Note both lines have the form <code>x = x + sublayer(LN(x))</code> — pure Pre-LN.</p>
+
+  <h3>Two practice questions</h3>
+  <details>
+    <summary>What happens if you forget the residual <code>x +</code> and write <code>x = self.attn(self.ln_1(x))</code> instead?</summary>
+    <p>The skip connection is gone. Information from the stream gets completely replaced by attention's output. For 12 stacked blocks, this gives you the "vanilla deep network" gradient problem — gradients vanish/explode, model is hard to train. Likely your loss won't decrease.</p>
+  </details>
+  <details>
+    <summary>Why don't we apply LN to the residual <code>x</code> before adding it (i.e., <code>x = LN(x) + sublayer(LN(x))</code>)?</summary>
+    <p>Because we want the residual stream to carry an unbounded, ever-growing "trace" of contributions from all earlier blocks. Normalizing the stream itself would erase that. The LayerNorms inside each block normalize a <i>view</i> of the stream for that sub-layer to read — they don't modify what the stream looks like to subsequent blocks.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="gpt">11. GPT assembly — stacking blocks + weight tying + init scheme</h2>
+
+<div class="panel">
+  <p>The final file. <code>gpt.py</code> assembles everything: embeddings, 12 blocks, final LN, lm_head. Plus weight tying and the GPT-2 init scheme. This is where the model actually becomes a <i>model</i>.</p>
+
+  <h3>The structure</h3>
+
+  <pre>
+class GPT(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+        self.cfg = cfg
+
+        self.token_emb = TokenEmbedding(cfg.vocab_size, cfg.n_embd)
+        self.pos_emb   = LearnedPositionalEmbedding(cfg.block_size, cfg.n_embd)
+
+        self.blocks = nn.ModuleList([Block(cfg) for _ in range(cfg.n_layer)])
+
+        self.ln_f    = LayerNorm(cfg.n_embd, bias=cfg.bias)
+        self.lm_head = nn.Linear(cfg.n_embd, cfg.vocab_size, bias=False)
+
+        # weight tying — the same Parameter is referenced from both places
+        self.lm_head.weight = self.token_emb.weight
+
+        # apply GPT-2 init scheme
+        self.apply(self._init_weights)
+
+    def forward(self, idx, targets=None):
+        B, T = idx.shape
+        x = self.token_emb(idx) + self.pos_emb(T)    # (B, T, D)
+        for block in self.blocks:
+            x = block(x)                              # still (B, T, D)
+        x = self.ln_f(x)
+        logits = self.lm_head(x)                      # (B, T, vocab_size)
+
+        if targets is None:
+            return logits
+        loss = F.cross_entropy(
+            logits.view(-1, logits.size(-1)),
+            targets.view(-1),
+        )
+        return logits, loss</pre>
+
+  <h3>Weight tying — the line that saves 38.6M params</h3>
+  <pre>self.lm_head.weight = self.token_emb.weight</pre>
+
+  <p>This single Python assignment makes <code>lm_head.weight</code> and <code>token_emb.weight</code> the <b>same Parameter object</b>. Same memory, same gradient. Updates to either show up in both because they ARE the same tensor.</p>
+
+  <ul>
+    <li><b>Param savings</b>: <code>(vocab_size, D) = (50257, 768) = 38.6M params</code> saved. Roughly 30% of the model.</li>
+    <li><b>Inductive bias</b>: the model is forced to use the same vector for "what token X looks like" (input) and "predict token X" (output). Surprisingly, this <i>improves</i> perplexity, not hurts it.</li>
+    <li><b>Gotcha</b>: an autograd subtlety. Both forward uses contribute to the same .grad. PyTorch handles this correctly — the gradient is the sum of contributions from both sites.</li>
+  </ul>
+
+  <h3>The GPT-2 init scheme</h3>
+
+  <p>Default PyTorch init (e.g. Linear's default kaiming) is reasonable for small networks but breaks at 12-layer depth. GPT-2 uses a specific recipe (paper §2.3 + appendix):</p>
+
+  <pre>
+def _init_weights(self, module):
+    if isinstance(module, nn.Linear):
+        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        if module.bias is not None:
+            torch.nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.Embedding):
+        torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    # Special: residual projections (c_proj in attention and MLP)
+    # are further scaled by 1/sqrt(2 * n_layer) to prevent
+    # variance growth as the residual stream accumulates contributions.</pre>
+
+  <p>Two things to understand:</p>
+  <ul>
+    <li><b>All Linear/Embedding weights</b> get <code>N(0, 0.02²)</code>. Tiny initial scale.</li>
+    <li><b>Residual projection weights specifically</b> (the <code>c_proj</code> at the end of attention and the second linear at the end of MLP) get further scaled by <code>1/sqrt(2 * n_layer)</code>. Why? With 12 blocks each adding to the residual stream, naive init would make the stream variance grow linearly with depth → numerical instability. The downscale keeps each sublayer's contribution small so the stream stays well-scaled.</li>
+  </ul>
+
+  <p>How to mark a Linear as a "residual projection" in code:</p>
+  <pre>
+self.c_proj = nn.Linear(D, D)
+self.c_proj.RESIDUAL_PROJ = True   # marker attribute</pre>
+  <p>Then in <code>_init_weights</code>, check for this attribute and apply the extra scaling.</p>
+
+  <h3>The forward pass — entire model in 6 lines</h3>
+
+  <pre>
+x = self.token_emb(idx) + self.pos_emb(T)
+for block in self.blocks:
+    x = block(x)
+x = self.ln_f(x)
+logits = self.lm_head(x)
+if targets is not None:
+    loss = F.cross_entropy(logits.view(-1, V), targets.view(-1))</pre>
+
+  <p>That's the whole 124M-parameter model. Everything else is plumbing.</p>
+
+  <h3>Practice exercises</h3>
+  <details>
+    <summary>How many learnable Parameters does the model have at GPT-2 124M (after weight tying)?</summary>
+    <p>
+      Token embedding: 50257 × 768 = 38.6M (shared with lm_head — only counted once)<br>
+      Pos embedding: 1024 × 768 = 0.79M<br>
+      Per block: 4D² (attention QKV+out) + 8D² (MLP) + 2D (LN γ) + 2D (LN β) ≈ 12 × 768² ≈ 7.08M<br>
+      12 blocks: 84.9M<br>
+      Final LN: 2 × 768 = 0.0015M<br>
+      <b>Total: ~124M.</b> (Hence "GPT-2 124M".)
+    </p>
+    <p>Without weight tying it would be ~163M.</p>
+  </details>
+
+  <details>
+    <summary>What happens if you forget to apply the model's init at the end of __init__?</summary>
+    <p>You get PyTorch's default init for each module, which is reasonable for small networks but for a 12-layer model with residual connections, the variance of the residual stream grows uncontrollably and the model is hard or impossible to train. Loss may stall around the initial value (log(vocab_size) ≈ 10.8) and never decrease.</p>
+  </details>
+
+  <details>
+    <summary>If you train two GPTs with the same config but different init seeds, will they converge to the same weights?</summary>
+    <p>No. The loss landscape has many local minima of similar quality. Different seeds will give slightly different per-token behavior even after lots of training. The loss curves will be very similar though, modulo small noise.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="loss">12. Loss function + the Step 2 smoke test</h2>
+
+<div class="panel">
+  <h3>Cross-entropy at every position</h3>
+
+  <p>The loss for a single (b, t) prediction is <code>−log P(target[b, t])</code>. PyTorch's <code>F.cross_entropy(logits, targets)</code> wraps this for you.</p>
+
+  <p>For batched/sequence input the conventional shape is:</p>
+  <pre>
+logits  shape (B, T, V)
+targets shape (B, T)         (the y from your DataLoader — x shifted by 1)
+
+# Flatten so cross_entropy treats every (b, t) as an independent example:
+logits.view(-1, V)            # (B*T, V)
+targets.view(-1)              # (B*T,)
+loss = F.cross_entropy(...)   # scalar (mean over B*T positions)</pre>
+
+  <p>One backward pass through this single scalar will compute gradients for every parameter in the model. That's training.</p>
+
+  <h3>Smoke test: overfit a single batch</h3>
+
+  <p>Before declaring Step 2 done, we run this test:</p>
+  <ol>
+    <li>Sample one batch from the dataloader.</li>
+    <li>Train on JUST that batch for 50–100 steps with a small LR.</li>
+    <li>Confirm the loss drops to near zero.</li>
+  </ol>
+
+  <p>Why this works as a sanity check: a correctly implemented model with sufficient capacity should be able to memorize a single training example almost perfectly. If you see loss plateau above zero, something is broken — most likely:</p>
+  <ul>
+    <li>Missing residual connection (gradients can't flow)</li>
+    <li>Wrong loss target alignment (off-by-one in y)</li>
+    <li>Wrong softmax dim somewhere</li>
+    <li>Init too aggressive/small</li>
+    <li>LayerNorm bug</li>
+  </ul>
+
+  <p>An ideal initial loss for a well-init'd model is approximately <code>ln(vocab_size) = ln(50257) ≈ 10.8</code>. If you see initial loss substantially different from that, your init or final projection is wrong.</p>
+
+  <details>
+    <summary>Why is initial loss ≈ ln(vocab_size)?</summary>
+    <p>At init, the model has no useful information. If logits are approximately uniform across the vocab, softmax gives each token probability <code>1/V</code>. Cross-entropy is <code>−log(1/V) = log(V)</code>. For V=50257, that's ≈ 10.83.</p>
+    <p>Sanity check on day 0: run your model on a random batch, no training. Loss should be ~10.8. If it's 0 or wildly different, something is wrong.</p>
+  </details>
+
+  <details>
+    <summary>What about the loss after a tiny bit of training on a single batch?</summary>
+    <p>You should see it drop to &lt; 1.0 within 50–100 steps, and approach 0 with continued training (the model is memorizing the single batch's targets). Curve should be monotonically decreasing aside from small noise.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="roadmap">13. Roadmap: what comes after Step 2</h2>
+
+<div class="panel">
+  <p>You'll have a working <code>GPT</code> class at the end of Step 2. It can do forward passes and overfit a tiny batch. But it can't train on real data yet — that's Steps 3+.</p>
+
+  <h3>Step 3 — Single-GPU training</h3>
+  <ul>
+    <li><code>training/optim.py</code>: AdamW with parameter groups (weight decay only on 2D+ params, not on LN γ/β).</li>
+    <li><code>training/schedule.py</code>: cosine learning rate with warmup.</li>
+    <li><code>training/trainer.py</code>: the train loop — bf16 autocast, gradient accumulation, gradient clipping, periodic eval and checkpoint.</li>
+    <li>Run actual GPT-2 124M training on FineWeb-Edu. Hit the build-nanogpt val loss target.</li>
+  </ul>
+
+  <h3>Step 4 — Distributed (DDP)</h3>
+  <ul>
+    <li><code>training/distributed.py</code>: <code>init_process_group</code>, wrap model in <code>DistributedDataParallel</code>, handle rank-0-only logging.</li>
+    <li>Verify single-GPU vs 8×GPU training match (same total batch size, same loss curve).</li>
+  </ul>
+
+  <h3>Step 5 — Free perf wins</h3>
+  <ul>
+    <li><code>cfg.compile=True</code>: torch.compile fuses ops into faster kernels. ~30% speedup.</li>
+    <li><code>cfg.use_flash=True</code>: route attention through <code>F.scaled_dot_product_attention</code>, which uses FlashAttention-2 on H100. Big speedup + memory savings.</li>
+    <li>Same loss curve, faster steps.</li>
+  </ul>
+
+  <h3>Step 6 — SOTA extensions</h3>
+  <ul>
+    <li>RoPE (rotary position embeddings) — swap learned-pos for rotation applied to Q, K inside attention.</li>
+    <li>RMSNorm — drop the mean centering and bias from LayerNorm.</li>
+    <li>SwiGLU — replace GELU with a gated linear unit; retune hidden ratio.</li>
+    <li>GQA (grouped-query attention) — n_kv_heads &lt; n_head; share K, V across query groups.</li>
+    <li>Muon optimizer — newer matrix-aware optimizer.</li>
+    <li>QK-norm, z-loss — additional stability tricks.</li>
+    <li>HellaSwag evaluation — standard downstream benchmark.</li>
+  </ul>
+
+  <h3>Step 7 — Scale to 350M</h3>
+  <ul>
+    <li>Same code, bigger config (D=1024, n_layer=24, etc.). Compare baseline vs SOTA at 350M.</li>
+  </ul>
+
+  <h3>The arc</h3>
+  <p>The whole project: build a paper-faithful GPT-2 124M → train it → make it fast → add modern improvements → scale up. Each step ends with a working, runnable repo. Every "extension" is gated behind a config flag, so you can A/B against the baseline.</p>
+</div>
+
+<hr style="margin-top: 60px;">
+
+<h1 style="margin-top: 30px;">Part III — Step 3: training step shapes</h1>
+<div class="sub">
+  Once Step 2 is done (you can do forward passes), training is "add backward, optimizer, loss, and a loop."
+  Every concept here is about <i>shapes</i> and <i>where the memory goes</i>. Step 3 is mostly plumbing — but the shape choices are load-bearing.
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="trainstep">14. The training step at a glance</h2>
+
+<div class="panel">
+  <p>One training step = one optimizer update. It involves N micro-batches of (forward + backward), then one optimizer step. Conceptually:</p>
+
+  <pre>
+for step in range(max_steps):
+    optimizer.zero_grad()
+
+    for micro in range(grad_accum_steps):              # N micro-batches per step
+        x, y = loader.next_batch()                     # (B, T) ids, (B, T) targets
+        logits, loss = model(x, targets=y)             # forward
+        loss = loss / grad_accum_steps                 # scale because we'll sum N grads
+        loss.backward()                                # backward — ACCUMULATES into .grad
+
+    grad_norm = clip_grad_norm_(model.parameters(), 1.0)  # global norm clip
+    optimizer.step()                                    # AdamW update
+    scheduler.step()                                    # update LR for next step</pre>
+
+  <h3>Shape progression for ONE micro-batch</h3>
+  <table>
+    <tr><th>Stage</th><th>Tensor</th><th>Shape</th><th>Dtype</th></tr>
+    <tr><td>input</td><td>x (token ids)</td><td class="shape">(B, T)</td><td>int64</td></tr>
+    <tr><td>input</td><td>y (targets)</td><td class="shape">(B, T)</td><td>int64</td></tr>
+    <tr><td>fwd</td><td>logits</td><td class="shape">(B, T, V) = (B, T, 50257)</td><td>bf16 (in autocast)</td></tr>
+    <tr><td>loss</td><td>scalar</td><td class="shape">()</td><td>fp32</td></tr>
+    <tr><td>bwd</td><td>p.grad for each param p</td><td class="shape">same as p</td><td>fp32</td></tr>
+    <tr><td>step</td><td>optimizer state (m, v) per param</td><td class="shape">same as p, ×2</td><td>fp32</td></tr>
+  </table>
+
+  <div class="callout">
+    <b>Key insight:</b> nothing about the model architecture changes during training. The forward shapes you wrote in Step 2 are the exact shapes used here. Step 3 just adds:
+    <ol>
+      <li>One scalar loss at the end of forward.</li>
+      <li>One <code>.grad</code> tensor per parameter (same shape as the parameter).</li>
+      <li>Optimizer state per parameter (AdamW = 2 extra tensors per param, same shape).</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="celoss">15. Cross-entropy loss — the flatten trick</h2>
+
+<div class="panel">
+  <p>Your logits are <code>(B, T, V)</code> and targets are <code>(B, T)</code>. PyTorch's <code>F.cross_entropy</code> expects 2D inputs <code>(N, V)</code> and 1D targets <code>(N,)</code>. So you flatten the batch and time dims into one giant "examples" axis:</p>
+
+  <pre>
+logits  shape (B, T, V)
+targets shape (B, T)         int64
+
+# Flatten:
+logits.view(-1, V)            # (B*T, V)    — each row is one prediction
+targets.view(-1)              # (B*T,)      — each entry is the target class
+
+loss = F.cross_entropy(logits.view(-1, V), targets.view(-1))
+# Returns scalar by default (mean reduction over B*T positions)</pre>
+
+  <h3>What cross-entropy actually computes</h3>
+  <p>For one example with logits <code>z ∈ R^V</code> and target class <code>y ∈ {0..V-1}</code>:</p>
+  <pre>
+loss_i = -log( exp(z_y) / sum_k exp(z_k) )
+       = -z_y + log_sum_exp(z)</pre>
+  <p>Then it averages over all <code>B*T</code> positions to give the scalar loss.</p>
+
+  <h3>Shape pipeline</h3>
+  <table>
+    <tr><th>Step</th><th>Operation</th><th>Shape</th></tr>
+    <tr><td>0</td><td>logits, targets from forward</td><td class="shape">(B, T, V), (B, T)</td></tr>
+    <tr><td>1</td><td><code>logits.view(-1, V)</code></td><td class="shape">(B*T, V)</td></tr>
+    <tr><td>2</td><td><code>targets.view(-1)</code></td><td class="shape">(B*T,)</td></tr>
+    <tr><td>3</td><td>internally: softmax over dim -1</td><td class="shape">(B*T, V) — probabilities</td></tr>
+    <tr><td>4</td><td>internally: pick prob at index targets[i] per row, take −log</td><td class="shape">(B*T,) — per-example losses</td></tr>
+    <tr><td>5</td><td>mean reduction</td><td class="shape">() — scalar</td></tr>
+  </table>
+
+  <h3>Reduction options</h3>
+  <ul>
+    <li><code>reduction="mean"</code> (default): sum / (B*T). Most common.</li>
+    <li><code>reduction="sum"</code>: just the sum.</li>
+    <li><code>reduction="none"</code>: return per-example losses, shape <code>(B*T,)</code>.</li>
+  </ul>
+
+  <details>
+    <summary>What's <code>ignore_index</code> and do we need it?</summary>
+    <p><code>F.cross_entropy(..., ignore_index=-100)</code> tells PyTorch to skip positions whose target is -100 (a sentinel) in the loss computation. Useful for masked-LM tasks where some positions don't have targets. <b>For autoregressive LMs like GPT, we don't need it</b> — every position has a valid next-token target.</p>
+  </details>
+
+  <details>
+    <summary>Why use the flatten trick instead of a 3D version?</summary>
+    <p>PyTorch's <code>F.cross_entropy</code> accepts <code>(N, V, *)</code> shape and treats N as batch, V as class axis, and the rest as "extra spatial dims" (originally for segmentation). So <code>F.cross_entropy(logits.transpose(1, 2), targets)</code> with shapes <code>(B, V, T)</code> and <code>(B, T)</code> also works. The flatten approach is more explicit about what's happening — each (b, t) is one independent example.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="grads">16. Backward pass — what gradients exist</h2>
+
+<div class="panel">
+  <p>When you call <code>loss.backward()</code>, PyTorch traverses the computation graph and computes <code>∂loss / ∂p</code> for every Parameter <code>p</code> that was used. Each gradient is stored in <code>p.grad</code> — <b>same shape as the parameter</b>.</p>
+
+  <h3>Every parameter and its gradient (GPT-2 124M)</h3>
+  <table>
+    <tr><th>Parameter</th><th>Shape</th><th>Count</th></tr>
+    <tr><td>token_emb.weight (also lm_head.weight, tied)</td><td class="shape">(50257, 768)</td><td>38.6M</td></tr>
+    <tr><td>pos_emb.weight</td><td class="shape">(1024, 768)</td><td>0.79M</td></tr>
+    <tr><td colspan="3" style="background: #1a1f2a; color: var(--muted);">— per block (×12) —</td></tr>
+    <tr><td>ln_1.weight, ln_1.bias</td><td class="shape">(768,) each</td><td>1536 ×2</td></tr>
+    <tr><td>attn.c_attn.weight</td><td class="shape">(768, 2304)</td><td>1.77M</td></tr>
+    <tr><td>attn.c_attn.bias</td><td class="shape">(2304,)</td><td>2304</td></tr>
+    <tr><td>attn.c_proj.weight</td><td class="shape">(768, 768)</td><td>0.59M</td></tr>
+    <tr><td>attn.c_proj.bias</td><td class="shape">(768,)</td><td>768</td></tr>
+    <tr><td>ln_2.weight, ln_2.bias</td><td class="shape">(768,) each</td><td>1536 ×2</td></tr>
+    <tr><td>mlp.fc.weight</td><td class="shape">(768, 3072)</td><td>2.36M</td></tr>
+    <tr><td>mlp.fc.bias</td><td class="shape">(3072,)</td><td>3072</td></tr>
+    <tr><td>mlp.proj.weight</td><td class="shape">(3072, 768)</td><td>2.36M</td></tr>
+    <tr><td>mlp.proj.bias</td><td class="shape">(768,)</td><td>768</td></tr>
+    <tr><td colspan="3" style="background: #1a1f2a; color: var(--muted);">— after blocks —</td></tr>
+    <tr><td>ln_f.weight, ln_f.bias</td><td class="shape">(768,) each</td><td>1536</td></tr>
+    <tr><td><b>Total Parameters</b></td><td>—</td><td><b>~124M</b></td></tr>
+  </table>
+
+  <h3>Gradient memory cost</h3>
+  <p>Every Parameter gets a <code>.grad</code> tensor of the same shape. <b>Total grad memory = total param memory.</b></p>
+  <p>For GPT-2 124M at fp32: 124M × 4 bytes ≈ <b>500 MB</b> just for gradients. (Plus another 500 MB for the params themselves.)</p>
+
+  <div class="callout">
+    <b>The weight-tying subtlety again:</b> token_emb.weight and lm_head.weight are <i>the same Parameter object</i>. When you call .backward(), gradients from <b>both</b> forward sites (input embedding and output projection) accumulate into the same <code>.grad</code>. PyTorch's autograd handles this correctly via the sum rule.
+  </div>
+
+  <h3>How autograd builds the graph</h3>
+  <p>Every torch operation that involves a tensor with <code>requires_grad=True</code> attaches a <code>grad_fn</code> to the output. Following these grad_fn chains backward reconstructs the gradient. You don't write the backward pass; PyTorch does. Your only obligation is to write a forward that uses differentiable ops.</p>
+
+  <details>
+    <summary>What happens to gradients after <code>optimizer.step()</code>?</summary>
+    <p>Nothing automatically — they sit in <code>p.grad</code>. You must call <code>optimizer.zero_grad()</code> (or <code>optimizer.zero_grad(set_to_none=True)</code>, faster) before the next backward to clear them. Otherwise the next backward would <i>accumulate</i> on top of the previous step's grads — which is exactly the behavior gradient accumulation exploits.</p>
+  </details>
+
+  <details>
+    <summary>What if I forget to call backward?</summary>
+    <p>No gradients get computed. Optimizer.step() will see stale or zero <code>.grad</code> and the parameters won't update. Loss won't decrease. Classic bug.</p>
+  </details>
+
+  <details>
+    <summary>Is gradient memory the biggest cost during training?</summary>
+    <p>No. Activations stored for backward are typically bigger. We'll cover this in §23.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="accum">17. Gradient accumulation</h2>
+
+<div class="panel">
+  <p><b>Goal:</b> train with effective batch size <code>B_eff = B × N</code> where N = grad_accum_steps, even though only <code>B</code> fits in GPU memory.</p>
+
+  <p><b>Mechanism:</b> exploit the fact that <code>.backward()</code> ACCUMULATES into <code>.grad</code> by default. Loop N times, each time computing loss on a different micro-batch and calling backward without clearing grads. After N micro-batches, the accumulated <code>.grad</code> is the sum of N per-micro-batch gradients.</p>
+
+  <pre>
+optimizer.zero_grad()                              # clear grads
+
+for micro in range(grad_accum_steps):              # N micro-batches
+    x, y = loader.next_batch()
+    logits, loss = model(x, targets=y)
+    loss = loss / grad_accum_steps                 # scale so accumulated grad = mean, not sum
+    loss.backward()                                # ADDS to p.grad
+
+optimizer.step()                                   # apply accumulated grad</pre>
+
+  <h3>The scaling trick</h3>
+  <p>Why divide loss by <code>grad_accum_steps</code>? Because cross_entropy with reduction="mean" averages over <code>B*T</code> positions. Without the scaling, accumulating N micro-batch backwards gives you a gradient that's N× too big (it's the sum of N means, not the mean of B_eff×T positions).</p>
+
+  <p>By scaling <code>loss = loss / N</code> before each backward, the accumulated <code>.grad</code> after the loop is exactly the mean-reduced gradient over the full effective batch.</p>
+
+  <h3>Shape invariance</h3>
+  <p>Every micro-batch has the same shape <code>(B, T)</code>. The <code>.grad</code> tensors have the same shape as the parameters (see §16). <b>Nothing about the shapes changes</b> with grad accumulation — it's a pure scheduling trick.</p>
+
+  <h3>Effective batch math</h3>
+  <p>At GPT-2 124M defaults (B=64, T=1024, grad_accum=8, world_size=8):</p>
+  <ul>
+    <li>Per micro-batch: B × T = 64 × 1024 = 65,536 tokens</li>
+    <li>Per optimizer step (all ranks, all accum steps): B × T × accum × world_size = 64 × 1024 × 8 × 8 = <b>4,194,304 tokens</b></li>
+    <li>Per "epoch" of FineWeb-10BT: ~2400 steps</li>
+    <li>Full training run: 19,073 steps ≈ 8 epochs over the 10B tokens</li>
+  </ul>
+
+  <details>
+    <summary>Why not just use bigger B if you have memory? Why bother with accum?</summary>
+    <p>If your GPU can fit B=512 in memory, by all means use that. But for 124M with bf16, you might be limited to B=64 per GPU on smaller cards. Grad accum lets you increase effective batch without bigger GPUs.</p>
+    <p>Also: at very large scale, you might want effective batch in the millions but no single GPU can fit anywhere close. Accum + DDP combine for arbitrary effective batch.</p>
+  </details>
+
+  <details>
+    <summary>What's the DDP grad-sync subtlety with accumulation?</summary>
+    <p>By default, DDP all-reduces gradients on EVERY <code>.backward()</code> call. That's wasted bandwidth — we don't need to sync after each micro-batch, only after the last one before <code>optimizer.step()</code>.</p>
+    <p>Fix: set <code>model.require_backward_grad_sync = False</code> during micro-batches 1..N-1, then <code>True</code> for the last one. PyTorch DDP also provides a <code>no_sync()</code> context manager. We'll use this in Step 4.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="clip">18. Gradient clipping</h2>
+
+<div class="panel">
+  <p>After backward (and accumulation), gradients can occasionally be huge — a spike in loss or a rare token can produce a gradient with norm 100× larger than usual. Clipping caps it to keep training stable.</p>
+
+  <h3>The math</h3>
+  <pre>
+total_norm = sqrt( sum_p ||p.grad||² )       # L2 norm across ALL parameter grads
+if total_norm > max_norm:
+    scale = max_norm / total_norm
+    for p in params:
+        p.grad *= scale</pre>
+
+  <p>Every parameter's gradient is scaled by the same factor so the global gradient vector's L2 norm equals <code>max_norm</code>. Direction preserved, magnitude clipped.</p>
+
+  <p>PyTorch provides this as a one-liner:</p>
+  <pre>grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)</pre>
+
+  <h3>Common values</h3>
+  <p>GPT-2 paper: <code>max_norm = 1.0</code>. We use this. It's almost universal across modern LLM training.</p>
+
+  <h3>Why log <code>grad_norm</code> as a metric?</h3>
+  <p>It's a great diagnostic. Normal grad_norm should be O(1) — if it suddenly spikes to 10 or 100, your loss probably also spiked or something destabilized. If it slowly grows over training, the model might be diverging. If it's always near 0, training has stalled or learning rate is too small.</p>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="adamw">19. AdamW — state shapes + parameter groups</h2>
+
+<div class="panel">
+  <p>The optimizer that updates parameters from gradients. AdamW (Loshchilov & Hutter 2019) = Adam with <i>decoupled</i> weight decay. Standard for modern transformer training.</p>
+
+  <h3>The update rule (in pseudocode)</h3>
+  <pre>
+# Per parameter, per step:
+m = β₁ · m + (1 − β₁) · grad                # first moment (mean of gradients)
+v = β₂ · v + (1 − β₂) · grad²                # second moment (variance estimate)
+
+m_hat = m / (1 − β₁^t)                      # bias correction (early-step rampup)
+v_hat = v / (1 − β₂^t)
+
+update = m_hat / (sqrt(v_hat) + eps)
+p = p − lr · update
+p = p − lr · wd · p                         # weight decay (decoupled from grad)</pre>
+
+  <p>Defaults: β₁ = 0.9, β₂ = 0.95 (GPT-2 used 0.99; modern use 0.95), eps = 1e-8, lr per the schedule.</p>
+
+  <h3>Optimizer state shapes</h3>
+  <p>For EVERY parameter <code>p</code>, AdamW maintains <b>two extra tensors of the same shape</b>:</p>
+  <ul>
+    <li><code>state[p]["exp_avg"]</code> — the m vector (first moment estimate). Shape: <code>p.shape</code>.</li>
+    <li><code>state[p]["exp_avg_sq"]</code> — the v vector (second moment estimate). Shape: <code>p.shape</code>.</li>
+  </ul>
+  <p>Both are stored in <b>fp32</b> regardless of model dtype.</p>
+
+  <h3>Memory cost</h3>
+  <p>For GPT-2 124M at fp32: 124M × 4 bytes × 2 (for m and v) = <b>~1 GB</b> just for optimizer state. Combined with params (0.5 GB) + grads (0.5 GB), that's 2 GB before any activations.</p>
+
+  <h3>Parameter groups: weight decay only on 2D+ parameters</h3>
+  <p>GPT-2 (and modern LLM) convention: <b>apply weight decay only to 2D+ weight matrices, not to biases, LayerNorm γ/β, or embeddings</b>.</p>
+
+  <p>Why? Weight decay shrinks parameters toward zero. For weight matrices (Linear, Conv, etc.) this is regularization that helps generalization. For LN scale parameters or biases, shrinking them toward zero is meaningless or harmful — these parameters represent affine shifts and aren't redundant with the optimizer's loss minimization.</p>
+
+  <p>In code:</p>
+  <pre>
+decay_params  = [p for p in model.parameters() if p.dim() >= 2]
+nodecay_params = [p for p in model.parameters() if p.dim() < 2]
+
+optim_groups = [
+    {"params": decay_params, "weight_decay": cfg.weight_decay},
+    {"params": nodecay_params, "weight_decay": 0.0},
+]
+optimizer = torch.optim.AdamW(optim_groups, lr=cfg.lr, betas=(cfg.beta1, cfg.beta2))</pre>
+
+  <p>At 124M, roughly 90% of parameters are in the decay group (the big matrices); 10% are in the no-decay group (LN, biases).</p>
+
+  <details>
+    <summary>What about embeddings — are they 2D?</summary>
+    <p>Yes, embeddings are <code>(vocab_size, n_embd)</code> — 2D. So they go into the decay group by the dim ≥ 2 rule. (Some implementations special-case embeddings to skip decay; we follow the simpler dim-based rule per nanoGPT convention.)</p>
+  </details>
+
+  <details>
+    <summary>Why does it matter? Is the difference between decaying or not decaying LN params noticeable?</summary>
+    <p>Empirically yes — small but consistent. Decaying LN γ toward 0 effectively shrinks the activations after normalization, which interferes with training. Better to leave LN params alone.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="bf16">20. Mixed precision (bf16) — which tensors are which dtype</h2>
+
+<div class="panel">
+  <p>"Mixed precision" means using <b>bf16</b> for the forward/backward compute and <b>fp32</b> for the master copies of params and optimizer state. Saves ~half the memory, ~2× the speed on modern GPUs.</p>
+
+  <h3>The full dtype picture</h3>
+  <table>
+    <tr><th>Tensor</th><th>Stored as</th><th>Used in compute as</th><th>Memory (124M)</th></tr>
+    <tr><td>Parameters (master copy)</td><td>fp32</td><td>bf16 (cast on the fly inside autocast)</td><td>0.5 GB</td></tr>
+    <tr><td>Activations (forward)</td><td>bf16</td><td>bf16</td><td>~variable (depends on T, batch)</td></tr>
+    <tr><td>Activations (saved for backward)</td><td>bf16</td><td>—</td><td>~variable</td></tr>
+    <tr><td>Gradients (during backward)</td><td>bf16</td><td>bf16</td><td>0.25 GB peak</td></tr>
+    <tr><td>Gradients (master, after .grad accumulation)</td><td>fp32 (auto-upcast)</td><td>—</td><td>0.5 GB</td></tr>
+    <tr><td>Optimizer state (m, v)</td><td>fp32</td><td>fp32</td><td>1.0 GB</td></tr>
+  </table>
+
+  <h3>bf16 vs fp16</h3>
+  <ul>
+    <li><b>fp16</b>: 5 bits exponent, 10 bits mantissa. Tiny range — needs loss scaling to avoid underflow. Older GPUs only support this.</li>
+    <li><b>bf16</b>: 8 bits exponent (same as fp32!), 7 bits mantissa. <b>Same dynamic range as fp32</b>, just less precision. No loss scaling needed. A100/H100 support.</li>
+  </ul>
+  <p>Our codebase assumes bf16 throughout. <code>TrainConfig.dtype = "bf16"</code>.</p>
+
+  <h3>The autocast pattern</h3>
+  <pre>
+with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+    logits, loss = model(x, targets=y)
+# loss is now fp32 (cross_entropy automatically promotes for stability)
+# model weights are still fp32 (autocast only casts during ops)
+loss.backward()</pre>
+
+  <p>Inside the autocast region, PyTorch automatically:</p>
+  <ul>
+    <li>Casts compute-intensive ops (matmul, conv) to bf16.</li>
+    <li>Keeps reduction ops (softmax, LayerNorm) in fp32 for stability.</li>
+    <li>Returns activations in the appropriate dtype.</li>
+  </ul>
+
+  <p>At backward time, gradients are accumulated into the fp32 master <code>.grad</code> attributes automatically. So <code>optimizer.step()</code> always sees fp32 gradients on fp32 params.</p>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="lr">21. Learning rate schedule</h2>
+
+<div class="panel">
+  <p>Learning rate is just a scalar that changes over training steps. No tensor shapes here, but the schedule itself is shaped.</p>
+
+  <h3>The recipe: linear warmup + cosine decay</h3>
+  <pre>
+def lr_at_step(step, warmup_steps, max_steps, max_lr, min_lr):
+    if step &lt; warmup_steps:
+        # linear ramp from 0 to max_lr
+        return max_lr * (step + 1) / warmup_steps
+    if step &gt; max_steps:
+        return min_lr
+    # cosine decay from max_lr to min_lr over (max_steps − warmup_steps)
+    decay_ratio = (step - warmup_steps) / (max_steps - warmup_steps)
+    coeff = 0.5 * (1 + cos(π * decay_ratio))     # 1 → 0 over the run
+    return min_lr + coeff * (max_lr − min_lr)</pre>
+
+  <p>At GPT-2 124M defaults: max_lr = 6e-4, min_lr = 6e-5 (10× decay), warmup = 715 steps, max_steps = 19,073.</p>
+
+  <p>Schedule visualization (text plot):</p>
+  <pre>
+LR
+ max ┤            ╭─────╮
+     │           ╱       ╲
+     │          ╱         ╲
+     │         ╱           ╲
+     │        ╱             ╲___
+ min ┤___╱                       ╲___
+     └─────────────────────────────────→ step
+       warmup     cosine decay     end
+       (715)     (~18k steps)</pre>
+
+  <p>Why warmup? At step 0, AdamW's adaptive scaling (the v vector) is uninitialized. Big LR + uninitialized v can overshoot disastrously. Warmup gives v a few hundred steps to populate before LR ramps to max.</p>
+  <p>Why cosine decay? Empirically gives smooth, late-training convergence. Step-down schedules (e.g. divide LR by 10 every 5k steps) work too but produce loss "stair-steps." Cosine is smoother.</p>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="trainpseudo">22. Annotated train-loop pseudocode</h2>
+
+<div class="panel">
+  <p>The full Step 3 train loop with every shape annotated. Compare to the forward skeleton from §6.</p>
+
+  <pre>
+# Setup
+model = GPT(cfg).to(device)
+optimizer = configure_optimizer(model, cfg)       # AdamW with param groups
+train_loader = DistributedDataLoader(...)
+val_loader   = DistributedDataLoader(...)
+
+# Main loop
+for step in range(cfg.max_steps):
+    # 1. Zero out gradients
+    optimizer.zero_grad(set_to_none=True)
+
+    # 2. Gradient accumulation: N micro-batches per optimizer step
+    for micro in range(cfg.grad_accum_steps):
+        x, y = train_loader.next_batch()           # (B, T) int64
+        x, y = x.to(device), y.to(device)
+
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            logits, loss = model(x, targets=y)     # logits: (B, T, V); loss: scalar
+
+        loss = loss / cfg.grad_accum_steps         # scalar
+        loss.backward()                            # accumulates into p.grad (fp32)
+
+    # 3. Gradient clipping
+    grad_norm = clip_grad_norm_(model.parameters(), 1.0)    # scalar
+
+    # 4. Update learning rate
+    lr = lr_at_step(step, cfg.warmup_steps, cfg.max_steps, cfg.lr, cfg.min_lr)
+    for g in optimizer.param_groups:
+        g["lr"] = lr
+
+    # 5. Optimizer step
+    optimizer.step()                              # updates p in-place, refreshes m, v
+
+    # 6. Logging
+    if step % cfg.log_interval == 0:
+        log(step, loss.item(), lr, grad_norm.item())
+
+    # 7. Periodic eval
+    if step % cfg.eval_interval == 0:
+        val_loss = evaluate(model, val_loader)
+        log_val(step, val_loss)
+
+    # 8. Periodic checkpoint
+    if step % cfg.ckpt_interval == 0:
+        save_ckpt(step, model, optimizer, train_loader)</pre>
+
+  <h3>Per-step shape recap</h3>
+  <table>
+    <tr><th>Stage</th><th>Tensor</th><th>Shape</th></tr>
+    <tr><td>next_batch (per micro)</td><td>x, y</td><td class="shape">(B, T), (B, T)</td></tr>
+    <tr><td>model forward</td><td>logits</td><td class="shape">(B, T, V)</td></tr>
+    <tr><td>model forward</td><td>loss</td><td class="shape">() scalar</td></tr>
+    <tr><td>loss.backward</td><td>p.grad for each p</td><td class="shape">p.shape</td></tr>
+    <tr><td>clip_grad_norm_</td><td>grad_norm</td><td class="shape">() scalar</td></tr>
+    <tr><td>optimizer.step</td><td>updates p, m, v</td><td class="shape">all p.shape</td></tr>
+  </table>
+
+  <details>
+    <summary>What's <code>set_to_none=True</code> in <code>zero_grad</code>?</summary>
+    <p>Instead of filling <code>p.grad</code> with zeros, set it to <code>None</code>. The next backward will allocate a fresh tensor. Slightly faster (no need to traverse all params and write zeros) and produces cleaner gradient state.</p>
+  </details>
+
+  <details>
+    <summary>Why <code>loss.item()</code> in logging?</summary>
+    <p><code>loss</code> is a 0-d tensor on GPU. <code>loss.item()</code> transfers it to CPU as a Python float — necessary for printing or writing to a log file. Don't call this every step in a tight loop; it's a sync point that stalls the GPU.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="mem">23. Memory accounting — where the GPU memory actually goes</h2>
+
+<div class="panel">
+  <p>Total GPU memory during training = params + grads + optimizer state + activations + framework overhead. The "obvious" items (params, grads, optim) are deterministic; the elephant in the room is <b>activations</b>.</p>
+
+  <h3>Static memory (the deterministic stuff) — GPT-2 124M</h3>
+  <table>
+    <tr><th>Item</th><th>Dtype</th><th>Size</th></tr>
+    <tr><td>Parameters (fp32 master)</td><td>fp32</td><td>0.50 GB</td></tr>
+    <tr><td>Gradients (fp32 accumulator)</td><td>fp32</td><td>0.50 GB</td></tr>
+    <tr><td>AdamW state — m</td><td>fp32</td><td>0.50 GB</td></tr>
+    <tr><td>AdamW state — v</td><td>fp32</td><td>0.50 GB</td></tr>
+    <tr><td><b>Static subtotal</b></td><td></td><td><b>2.00 GB</b></td></tr>
+  </table>
+
+  <h3>Dynamic memory: activations saved for backward</h3>
+  <p>For backward to work, every intermediate activation that the gradient depends on must be saved. The biggest single contributor is the <b>attention scores tensor</b>, shape <code>(B, n_head, T, T)</code>:</p>
+  <ul>
+    <li>At B=8, n_head=12, T=1024, bf16: 8 × 12 × 1024 × 1024 × 2 bytes = <b>192 MB per layer</b>.</li>
+    <li>×12 layers = <b>2.3 GB</b> just for attention scores.</li>
+  </ul>
+  <p>Plus all the post-projection tensors, post-MLP tensors, etc. Activation memory typically <b>dominates</b> static memory.</p>
+
+  <p>This is why <b>FlashAttention</b> matters so much: it computes attention without ever materializing the full <code>(T, T)</code> scores matrix in memory. Memory drops to O(T) per head instead of O(T²).</p>
+
+  <h3>Total memory budget</h3>
+  <p>For GPT-2 124M with B=64, T=1024, bf16 + AdamW, NO flash attention: ~12–16 GB. Fits on a single H100 (80GB) with lots of room; fits on a 24GB A100/3090 if you reduce batch size.</p>
+
+  <h3>What dominates at scale?</h3>
+  <p>For very long sequences (T=4096+): attention scores tensor dominates. FlashAttention essential.</p>
+  <p>For very wide models (D=4096+): activations between MLP layers (shape <code>(B, T, 4D)</code>) dominate.</p>
+  <p>For very large parameter counts (10B+): optimizer state alone is 40+ GB. Need ZeRO, FSDP, etc.</p>
+
+  <details>
+    <summary>Why does gradient checkpointing exist?</summary>
+    <p>Trade compute for memory: don't save all activations during forward; recompute them during backward. Memory savings can be huge (10× or more); compute cost is +30% on each step. Worth it for very deep or wide models. We don't use it for GPT-2 124M because we don't need it.</p>
+  </details>
+
+  <details>
+    <summary>How does DDP affect memory?</summary>
+    <p>It doesn't, fundamentally — each rank holds a full model copy (params, grads, optim state) and computes activations for its own batch. Memory scales linearly with B per rank, regardless of world_size.</p>
+    <p>If memory is the issue at scale, use ZeRO/FSDP (shards the optimizer state and grads across ranks) instead of DDP. Out of scope for this project.</p>
+  </details>
+</div>
+
+<!-- ────────────────────────────────────────────────────────────────── -->
+
+<h2 id="step3-quiz">24. Self-check before implementing Step 3</h2>
+
+<div class="panel">
+  <p>If you can answer all of these without scrolling back, you're ready to implement Step 3.</p>
+
+  <ul class="checklist">
+    <li>For logits shape <code>(B, T, V)</code> and targets <code>(B, T)</code>, what's the call to <code>F.cross_entropy</code>?</li>
+    <li>What shape is each <code>p.grad</code> tensor? How much total memory for gradients at 124M?</li>
+    <li>Why divide loss by <code>grad_accum_steps</code> inside the accum loop?</li>
+    <li>What two extra tensors does AdamW maintain per Parameter? What dtype?</li>
+    <li>Why apply weight decay only to params with <code>dim() >= 2</code>?</li>
+    <li>What does <code>torch.autocast(device_type="cuda", dtype=torch.bfloat16)</code> do?</li>
+    <li>Why does the LR schedule have a warmup phase?</li>
+    <li>What's the formula for cosine LR decay from max_lr to min_lr?</li>
+    <li>What's the difference between <code>set_to_none=True</code> and the default in <code>zero_grad</code>?</li>
+    <li>Approximately how much GPU memory does GPT-2 124M training need with B=64, T=1024, bf16, AdamW?</li>
+  </ul>
+
+  <p>If 7+ are clear, you're set. Re-read the relevant section for any that aren't.</p>
+</div>
+
+<div class="footer-nav">
+  ┄ ┄ ┄ ┄ <br>
+  When you land: <span class="countdown">scaffold attention.py</span> together. <br>
+  Happy flying ✈
+</div>
+
+</body>
+</html>

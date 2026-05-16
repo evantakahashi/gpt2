@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Attention shapes — visual</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a22;
+    --muted: #6b7280;
+    --text: #e5e7eb;
+    --accent: #60a5fa;
+    --b: #60a5fa;       /* batch — blue */
+    --t: #fbbf24;       /* sequence/time — amber */
+    --d: #34d399;       /* feature dim — green */
+    --h: #c084fc;       /* heads — purple */
+    --dh: #f472b6;      /* head_dim — pink */
+    --v: #fb923c;       /* vocab — orange */
+    --grid: #2a2f3a;
+    --highlight: #fef08a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px;
+    background: var(--bg); color: var(--text);
+    font: 14.5px/1.6 ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    max-width: 1200px; margin-left: auto; margin-right: auto;
+  }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  .sub { color: var(--muted); margin-bottom: 22px; }
+
+  .panel {
+    background: var(--panel); border: 1px solid var(--grid); border-radius: 10px;
+    padding: 18px 22px; margin: 14px 0;
+  }
+
+  .controls-bar {
+    display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
+    background: var(--panel); border: 1px solid var(--grid); border-radius: 10px;
+    padding: 18px 22px; position: sticky; top: 18px; z-index: 10;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+  }
+  .ctrl { display: flex; flex-direction: column; gap: 4px; min-width: 110px; }
+  .ctrl label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .ctrl .val { font-family: ui-monospace, Menlo, monospace; font-size: 18px; color: var(--text); }
+  .ctrl input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+  .step {
+    margin-top: 26px;
+    background: var(--panel);
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 18px 22px;
+  }
+  .step-head {
+    display: flex; align-items: baseline; gap: 12px; margin-bottom: 8px;
+  }
+  .step-num {
+    background: #1e2330; color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 999px; padding: 2px 12px;
+    font-size: 12px; font-family: ui-monospace, Menlo, monospace;
+  }
+  .step-title { font-size: 15px; font-weight: 500; }
+  .step-op {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color: #cbd5e1; background: #0b0d12;
+    border: 1px solid var(--grid); border-radius: 5px;
+    padding: 6px 11px; font-size: 12.5px; margin: 8px 0;
+    display: inline-block;
+  }
+  .step-note { color: var(--muted); font-size: 13px; margin-top: 10px; }
+
+  .tensor-card {
+    background: #0b0d12; border: 1px solid var(--grid); border-radius: 8px;
+    padding: 14px 18px; margin: 8px 0;
+  }
+  .tensor-name {
+    font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+    color: var(--muted); margin-bottom: 10px;
+  }
+  .tensor-name .shape {
+    color: var(--text); font-weight: 500;
+  }
+  .tensor-name .total {
+    color: var(--muted); margin-left: 12px; font-size: 12px;
+  }
+
+  .ribbon {
+    display: flex; gap: 4px; align-items: stretch; height: 44px;
+    margin: 8px 0;
+  }
+  .dim {
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    border-radius: 5px; padding: 0 8px; min-width: 36px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+    color: #0b0d12; font-weight: 600;
+    transition: width 0.25s ease;
+    position: relative; overflow: hidden;
+    text-align: center; line-height: 1.1;
+  }
+  .dim small {
+    display: block; font-size: 10px; opacity: 0.75; font-weight: 500;
+  }
+  .dim.b  { background: var(--b); }
+  .dim.t  { background: var(--t); }
+  .dim.d  { background: var(--d); }
+  .dim.h  { background: var(--h); }
+  .dim.dh { background: var(--dh); }
+  .dim.v  { background: var(--v); }
+  .dim.three { background: repeating-linear-gradient(45deg, var(--d), var(--d) 8px, #1e2330 8px, #1e2330 12px); color: var(--text); }
+  .dim.tt { background: repeating-linear-gradient(45deg, var(--t), var(--t) 8px, var(--accent) 8px, var(--accent) 16px); }
+
+  .arrow-row {
+    display: flex; justify-content: center; color: var(--muted);
+    font-size: 22px; margin: 4px 0;
+  }
+
+  .multi {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  .change {
+    background: rgba(254, 240, 138, 0.08); border-left: 3px solid var(--highlight);
+    padding: 8px 12px; margin-top: 10px; font-size: 13px; color: #e5e7eb;
+  }
+  .change b { color: var(--highlight); }
+
+  .legend {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px;
+    background: var(--panel); padding: 12px 16px; border: 1px solid var(--grid); border-radius: 8px;
+    font-size: 12px; color: var(--muted);
+  }
+  .legend .item { display: flex; align-items: center; gap: 6px; }
+  .legend .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; }
+  .legend .b  { background: var(--b); }
+  .legend .t  { background: var(--t); }
+  .legend .d  { background: var(--d); }
+  .legend .h  { background: var(--h); }
+  .legend .dh { background: var(--dh); }
+  .legend .v  { background: var(--v); }
+
+  code { background: #0b0d12; padding: 1px 5px; border-radius: 3px; font-size: 13px; font-family: ui-monospace, Menlo, monospace; }
+
+  .preset-row { display: flex; gap: 8px; margin-top: 6px; }
+  .preset-row button {
+    background: #1e2330; color: var(--text); border: 1px solid var(--grid);
+    border-radius: 5px; padding: 4px 10px; font-size: 11.5px; cursor: pointer;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  .preset-row button:hover { background: #242a39; border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>Attention shapes — visual walkthrough</h1>
+<div class="sub">
+  Every step of multi-head causal self-attention with the resulting tensor shape shown as a colored ribbon.
+  Each colored block is one dimension; widths scale logarithmically with size.
+  <b>Move the sliders to see how shapes change with B, T, D, n_head.</b>
+</div>
+
+<div class="controls-bar">
+  <div class="ctrl">
+    <label>B (batch)</label>
+    <div class="val" id="b-val">2</div>
+    <input type="range" id="b" min="1" max="64" value="2">
+  </div>
+  <div class="ctrl">
+    <label>T (sequence length)</label>
+    <div class="val" id="t-val">8</div>
+    <input type="range" id="t" min="1" max="1024" value="8">
+  </div>
+  <div class="ctrl">
+    <label>D (embedding dim)</label>
+    <div class="val" id="d-val">12</div>
+    <input type="range" id="d" min="4" max="768" step="4" value="12">
+  </div>
+  <div class="ctrl">
+    <label>n_head</label>
+    <div class="val" id="nh-val">3</div>
+    <input type="range" id="nh" min="1" max="12" value="3">
+  </div>
+  <div class="ctrl" style="min-width: 0;">
+    <label>presets</label>
+    <div class="preset-row">
+      <button data-preset="tiny">tiny</button>
+      <button data-preset="small">small</button>
+      <button data-preset="gpt2_124m">GPT-2 124M</button>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="item"><span class="sw b"></span> B — batch</div>
+  <div class="item"><span class="sw t"></span> T — sequence length</div>
+  <div class="item"><span class="sw d"></span> D — embedding dim</div>
+  <div class="item"><span class="sw h"></span> n_head — number of heads</div>
+  <div class="item"><span class="sw dh"></span> d_head — per-head feature dim</div>
+</div>
+
+<!-- Steps render here -->
+<div id="steps"></div>
+
+<script>
+(() => {
+  function log_scale(v) {
+    // Logarithmic width: more compressed for huge dims, still visible for tiny ones.
+    return 18 + 22 * Math.log2(v + 1);
+  }
+
+  function dim(kind, label, value) {
+    const w = log_scale(value);
+    return `<div class="dim ${kind}" style="width:${w}px;" title="${label} = ${value}">
+              ${label}
+              <small>= ${value}</small>
+            </div>`;
+  }
+  function dimRaw(kind, html, width) {
+    return `<div class="dim ${kind}" style="width:${width}px;">${html}</div>`;
+  }
+  function totalElems(...vals) {
+    return vals.reduce((a,b)=>a*b, 1).toLocaleString();
+  }
+
+  // Build all step cards in one big template, then re-render on slider change.
+  function render(B, T, D, nh) {
+    const dh = Math.max(1, Math.floor(D / nh));
+    const root = document.getElementById("steps");
+
+    function tensor(name, ribbon, totals, note) {
+      return `<div class="tensor-card">
+        <div class="tensor-name">${name} <span class="total">${totals ? "= " + totals + " elements" : ""}</span></div>
+        <div class="ribbon">${ribbon}</div>
+        ${note ? `<div style="color: var(--muted); font-size: 12px; margin-top: 4px;">${note}</div>` : ""}
+      </div>`;
+    }
+
+    function step(num, title, op, body, change) {
+      return `<div class="step">
+        <div class="step-head">
+          <span class="step-num">step ${num}</span>
+          <span class="step-title">${title}</span>
+        </div>
+        ${op ? `<div class="step-op">${op}</div>` : ""}
+        ${body}
+        ${change ? `<div class="change"><b>What changed:</b> ${change}</div>` : ""}
+      </div>`;
+    }
+
+    let html = "";
+
+    // ── Step 0: input ──
+    html += step(0, "Input x — token embeddings + position embeddings", "x : (B, T, D)",
+      tensor("x",
+        dim("b","B",B) + dim("t","T",T) + dim("d","D",D),
+        totalElems(B,T,D),
+        "Each (b, t) is one token's D-dim vector. The shape we'll preserve end-to-end is (B, T, D)."
+      ),
+      null
+    );
+
+    // ── Step 1: c_attn ──
+    html += step(1, "Project to combined Q, K, V via one big linear",
+      "qkv = self.c_attn(x)     # nn.Linear(D, 3*D)",
+      tensor("qkv",
+        dim("b","B",B) + dim("t","T",T) + dim("three","3·D",3*D),
+        totalElems(B,T,3*D),
+        "The last dim went from D to 3·D. The first 3·0..D entries are Q, the next D are K, the next D are V — purely by convention."
+      ),
+      `Last dim <b>D → 3·D</b>. One matmul that produces Q, K, V concatenated along the last axis.`
+    );
+
+    // ── Step 2: split ──
+    html += step(2, "Split qkv into Q, K, V along last dim",
+      "q, k, v = qkv.split(D, dim=-1)",
+      `<div class="multi">
+        ${tensor("q (query)",  dim("b","B",B) + dim("t","T",T) + dim("d","D",D), totalElems(B,T,D))}
+        ${tensor("k (key)",    dim("b","B",B) + dim("t","T",T) + dim("d","D",D), totalElems(B,T,D))}
+        ${tensor("v (value)",  dim("b","B",B) + dim("t","T",T) + dim("d","D",D), totalElems(B,T,D))}
+      </div>`,
+      `<b>3·D → 3 separate tensors of size D each</b>. Each token now has its own Q, K, and V vector.`
+    );
+
+    // ── Step 3: reshape to heads ──
+    html += step(3, "Reshape each to expose the head dim",
+      "q = q.view(B, T, n_head, d_head)    # same for k, v",
+      tensor("q (and k, v)",
+        dim("b","B",B) + dim("t","T",T) + dim("h","n_head",nh) + dim("dh","d_head",dh),
+        totalElems(B,T,nh,dh),
+        `D got split into n_head × d_head = ${nh} × ${dh} = ${nh*dh}. Same total elements, new axis structure.`
+      ),
+      `<b>D → (n_head, d_head)</b>. The view() is a "split this dim into two" operation. Memory layout unchanged.`
+    );
+
+    // ── Step 4: transpose ──
+    html += step(4, "Transpose so the head dim moves before T",
+      "q = q.transpose(1, 2)    # (B, T, n_head, d_head) → (B, n_head, T, d_head)",
+      tensor("q (and k, v)",
+        dim("b","B",B) + dim("h","n_head",nh) + dim("t","T",T) + dim("dh","d_head",dh),
+        totalElems(B,nh,T,dh),
+        "Now (B, n_head, T, d_head). Same elements; dim order changed so that (B, n_head) act as 'batch dims' for the upcoming matmul."
+      ),
+      `<b>Dim positions swapped</b>: head dim moved from position 2 to position 1. transpose() doesn't move data; it changes strides.`
+    );
+
+    // ── Step 5: scores ──
+    html += step(5, "Attention scores = Q @ K.transpose(-2, -1)",
+      "scores = q @ k.transpose(-2, -1)",
+      tensor("scores",
+        dim("b","B",B) + dim("h","n_head",nh) + dim("tt","T",T) + dim("tt","T",T),
+        totalElems(B,nh,T,T),
+        `Each entry scores[b, h, i, j] = Q[b, h, i] · K[b, h, j] — a scalar relevance score for token i looking at token j, per head.`
+      ),
+      `<b>Last dim collapsed from d_head into T</b>. The dot product Q·K reduces the d_head axis and produces one scalar per (i, j) token pair → shape (T, T) per (B, head).`
+    );
+
+    // ── Step 6: scale ──
+    html += step(6, "Scale by 1 / √d_head — no shape change",
+      "scores = scores / math.sqrt(d_head)",
+      tensor("scores (scaled)",
+        dim("b","B",B) + dim("h","n_head",nh) + dim("tt","T",T) + dim("tt","T",T),
+        totalElems(B,nh,T,T),
+        `Same shape. Only values changed (divided by √${dh} ≈ ${Math.sqrt(dh).toFixed(2)}).`
+      ),
+      `Pure value transform. Shape unchanged.`
+    );
+
+    // ── Step 7: causal mask ──
+    html += step(7, "Apply causal mask — no shape change",
+      "scores = scores.masked_fill(mask == 0, float('-inf'))",
+      tensor("scores (masked)",
+        dim("b","B",B) + dim("h","n_head",nh) + dim("tt","T",T) + dim("tt","T",T),
+        totalElems(B,nh,T,T),
+        `Upper-triangle entries became −∞. Shape unchanged. Mask itself is (1, 1, T, T), broadcasts over (B, n_head).`
+      ),
+      `Pure value transform. Lower-triangle preserved; upper-triangle filled with −∞.`
+    );
+
+    // ── Step 8: softmax ──
+    html += step(8, "Softmax over the last dim — no shape change",
+      "weights = scores.softmax(dim=-1)",
+      tensor("weights",
+        dim("b","B",B) + dim("h","n_head",nh) + dim("tt","T",T) + dim("tt","T",T),
+        totalElems(B,nh,T,T),
+        `Each row of the inner (T, T) matrix is now a probability distribution summing to 1. Upper-triangle entries became exactly 0.`
+      ),
+      `Pure value transform. Shape unchanged. The "attention weights" matrix.`
+    );
+
+    // ── Step 9: weighted sum ──
+    html += step(9, "Apply weights to V — the actual mixing step",
+      "out = weights @ v",
+      tensor("out",
+        dim("b","B",B) + dim("h","n_head",nh) + dim("t","T",T) + dim("dh","d_head",dh),
+        totalElems(B,nh,T,dh),
+        `For each (B, head, position i), out[i] = Σⱼ weights[i,j] · V[j] — a d_head-dim weighted sum of all V rows.`
+      ),
+      `<b>Last dim collapsed from T into d_head</b>. The matmul reduces the T axis of weights against the T axis of V, leaving d_head per token.`
+    );
+
+    // ── Step 10: transpose back ──
+    html += step(10, "Transpose to move head dim back to position 2",
+      "out = out.transpose(1, 2)    # (B, n_head, T, d_head) → (B, T, n_head, d_head)",
+      tensor("out",
+        dim("b","B",B) + dim("t","T",T) + dim("h","n_head",nh) + dim("dh","d_head",dh),
+        totalElems(B,T,nh,dh),
+        "Same elements; dim order undoes the transpose from step 4. Now ready to merge n_head and d_head back into D."
+      ),
+      `<b>Dim positions swapped back</b>. Dim 1 and 2 swap again.`
+    );
+
+    // ── Step 11: combine heads ──
+    html += step(11, "Combine heads back to D",
+      "out = out.contiguous().view(B, T, D)",
+      tensor("out",
+        dim("b","B",B) + dim("t","T",T) + dim("d","D",D),
+        totalElems(B,T,D),
+        `n_head × d_head = ${nh} × ${dh} = ${nh*dh} merges into a single D=${D} axis.`
+      ),
+      `<b>(n_head, d_head) → D</b>. Inverse of step 3's view(). The .contiguous() is needed because the transpose left strided memory.`
+    );
+
+    // ── Step 12: output projection ──
+    html += step(12, "Output projection — final linear",
+      "out = self.c_proj(out)    # nn.Linear(D, D)",
+      tensor("out (final)",
+        dim("b","B",B) + dim("t","T",T) + dim("d","D",D),
+        totalElems(B,T,D),
+        `Same shape as the input. Ready to be added to the residual stream and fed into the next block.`
+      ),
+      `Shape unchanged (D → D). Pure linear transform.`
+    );
+
+    // ── Summary card ──
+    html += `<div class="step" style="border-color: var(--accent);">
+      <div class="step-head">
+        <span class="step-num" style="color: var(--accent); border-color: var(--accent);">summary</span>
+        <span class="step-title">Net effect: (B, T, D) → (B, T, D)</span>
+      </div>
+      <div class="step-note">
+        The whole attention block preserves shape. Input <code>(B, T, D)</code> in, output <code>(B, T, D)</code> out — that's why it can be stacked 12× in a row.
+        <br><br>
+        The interesting shape changes are <b>internal</b>:
+        <ul>
+          <li><b>Step 1</b> expands the last dim D → 3·D to compute Q, K, V together.</li>
+          <li><b>Steps 3–4</b> split D into (n_head, d_head) and put the head dim in front of T so per-head matmuls auto-vectorize.</li>
+          <li><b>Step 5</b> reduces d_head → T (per-token dot product) to make the T×T attention pattern per head.</li>
+          <li><b>Step 9</b> reduces T → d_head (weighted sum across positions) to make the per-token output.</li>
+          <li><b>Steps 10–12</b> undo the head split and project back to D.</li>
+        </ul>
+      </div>
+    </div>`;
+
+    root.innerHTML = html;
+  }
+
+  function readSliders() {
+    const B  = parseInt(document.getElementById("b").value);
+    const T  = parseInt(document.getElementById("t").value);
+    const D  = parseInt(document.getElementById("d").value);
+    let nh   = parseInt(document.getElementById("nh").value);
+    // Keep nh ≤ D and a divisor of D for cleanliness; else pick floor.
+    nh = Math.min(nh, D);
+    while (D % nh !== 0 && nh > 1) nh--;
+    document.getElementById("nh").value = nh;
+    document.getElementById("b-val").textContent = B;
+    document.getElementById("t-val").textContent = T;
+    document.getElementById("d-val").textContent = D;
+    document.getElementById("nh-val").textContent = nh;
+    render(B, T, D, nh);
+  }
+
+  ["b","t","d","nh"].forEach(id => {
+    document.getElementById(id).addEventListener("input", readSliders);
+  });
+
+  document.querySelectorAll(".preset-row button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const name = btn.dataset.preset;
+      const presets = {
+        tiny:      { b:1,  t:4,    d:8,   nh:2  },
+        small:     { b:4,  t:32,   d:64,  nh:4  },
+        gpt2_124m: { b:8,  t:1024, d:768, nh:12 },
+      };
+      const p = presets[name];
+      document.getElementById("b").value  = p.b;
+      document.getElementById("t").value  = p.t;
+      document.getElementById("d").value  = p.d;
+      document.getElementById("nh").value = p.nh;
+      readSliders();
+    });
+  });
+
+  readSliders();
+})();
+</script>
+
+</body>
+</html>

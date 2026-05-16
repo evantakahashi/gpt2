@@ -402,6 +402,135 @@ Forces the model to use the same representation for "what this token looks like 
 
 ---
 
+## 8. The full GPT-2 forward pass (where does the prediction come from?)
+
+### What attention actually outputs
+Attention takes `(B, T, D)` and returns `(B, T, D)` — **same shape**. Each output position is the same token's representation, but now contextually informed by the other tokens it attended to.
+
+**Attention does NOT produce vocabulary predictions.** It produces *better token vectors*.
+
+### The full pipeline (forward pass)
+```
+ids (B, T) int
+    │
+    ▼   token_emb(idx) + pos_emb(T)
+    │
+(B, T, D)
+    │
+    ▼   ┌─── Block 1: attn + residual + MLP + residual ───┐
+    │   ...                                                  ×12 blocks
+    ▼   └─── Block 12 ────────────────────────────────────┘
+    │
+(B, T, D)
+    │
+    ▼   final LayerNorm
+(B, T, D)
+    │
+    ▼   lm_head: nn.Linear(D, V, bias=False)
+(B, T, V)   ← logits over the 50257-token vocabulary, at EVERY position
+    │
+    ▼   training:   cross_entropy(logits, targets) → scalar loss
+        inference:  softmax(logits[:, -1, :]) → sample → next token id
+```
+
+### Where the "next token prediction" comes from
+- The **last linear layer**, `lm_head`, projects each `D`-dim hidden vector to `V = 50257` logits (one per possible token).
+- `softmax(logits[i])` gives the probability distribution over what token comes after position i.
+- To **generate**, we softmax the logits at the **last position** of the sequence, then either argmax (greedy) or sample.
+
+### Training vs inference — same forward, different post-processing
+**Training:** every position contributes a loss signal. Given input `[t0, t1, ..., t_{T-1}]`, the model produces logits at all T positions. Position i should predict t_{i+1}. We compute cross-entropy at every position. **T loss terms per sequence — extremely sample-efficient.**
+
+**Inference:** we only care about the last position's logits. Sample → append new token → re-run forward on the longer sequence → sample → repeat.
+
+### Why 12 stacked blocks
+Each block produces a refined `(B, T, D)` representation. Layer 1 might capture simple local relationships; layer 6 longer-range patterns; layer 12 abstract concepts useful for prediction. This specialization is emergent — gradient signal teaches it, we don't program it. Only the final block's output is read by `lm_head`.
+
+### The shape progression — internalize this
+| Stage | Shape | Meaning |
+|---|---|---|
+| Input ids | `(B, T)` int | token id integers |
+| After embedding | `(B, T, D)` float | content + position vectors |
+| After block 1 | `(B, T, D)` float | enriched, level 1 |
+| After block 12 | `(B, T, D)` float | enriched, level 12 |
+| After lm_head | `(B, T, V)` float | logits over vocab, at every position |
+| After softmax | `(B, T, V)` float | probability distribution per position |
+| After sample (last pos only) | `(B,)` int | next token ids |
+
+**Key:** D stays constant through the whole transformer stack. Only the **last linear** changes the dimensionality from D to V.
+
+### Open questions
+- Do we have to compute logits at every position during inference? No — but we do during training because it's free (the matmul is the same cost) and provides T loss signals. During inference we could project only the last position.
+- How big is `lm_head`? `D × V = 768 × 50257` = 38.6M params. Same matrix as `token_emb` (weight tying!).
+
+**Your notes:**
+
+---
+
+## 9. What do B, T, D, V actually mean? (terminology check)
+
+These four letters appear in nearly every shape annotation. Worth understanding what each represents.
+
+### B — batch size
+- Number of **independent** sequences processed in parallel.
+- "Independent" matters: rows in a batch never share information through the model. They're parallel universes that just happen to run on the same GPU at the same time.
+- Why we batch: GPUs are massively parallel; processing 64 sequences at once is roughly the same wall-clock cost as processing 1.
+- Affects: memory (linearly), gradient noise (inversely with sqrt(B)). Does NOT affect model architecture or parameter count.
+- Our config: per-rank `batch_size=64`, with `grad_accum=8`, world_size=8 → effective batch = 4096 sequences/step.
+
+### T — sequence length (a.k.a. block_size when at max)
+- How many tokens are in each sequence in the current batch.
+- Each sequence is a contiguous chunk of tokens from the dataset (e.g. a 1024-token excerpt from a FineWeb article).
+- Attention's compute and memory cost grow as **O(T²)** — long sequences are expensive.
+- Capped at `block_size` (model's max context length, 1024 for GPT-2). Cannot exceed because positional embedding table only has block_size rows.
+
+### D — embedding dimension (a.k.a. n_embd)
+- The **width** of every internal representation. Every (b, t) cell of the hidden state is a D-dim vector.
+- Where it shows up:
+  - Token embedding rows are D-dim each.
+  - Hidden state through every block: `(B, T, D)`.
+  - Q/K/V projections: D → D internally (split into n_head pieces).
+  - MLP hidden: 4×D wide internally.
+- D is the **capacity knob**. GPT-2 scales it across sizes:
+  - 124M: D=768
+  - 350M: D=1024
+  - 774M: D=1280
+  - 1.5B: D=1600
+- Most Linear params scale as **D²**, so doubling D ~4×s those params.
+
+### V — vocabulary size
+- Total number of distinct tokens the model knows. Fixed by the tokenizer.
+- For GPT-2's BPE: V = 50257.
+- Appears in two places: token embedding `(V, D)` and lm_head `(D, V)` (which are the same matrix, tied).
+
+### The key difference — B vs D
+| | B (batch) | D (embed dim) |
+|---|---|---|
+| What it indexes | independent examples | features of one token |
+| Coupling between slices | none (parallel universes) | dense (Linears mix all D features) |
+| Set at... | training time (data axis) | architecture time (fixed for the run) |
+| Affects parameters? | no | yes — every Parameter |
+| Cost when doubled | ~2× memory, ~2× time | ~4× params for D×D layers |
+
+### A `(B, T, D)` tensor in plain English
+`(B=4, T=8, D=768)` =
+- 4 independent sequences,
+- each with 8 tokens,
+- each token represented as a 768-dim vector.
+
+Attention mixes across T (within a sequence). MLP processes each (b, t) cell independently (along the D axis). **Neither operation mixes across B.**
+
+### Quick sanity calculation
+For `B=8, T=1024, D=768`:
+- Independent training examples per forward pass: 8
+- Total tokens processed: 8 × 1024 = 8,192
+- D-dim vectors held in one hidden state: 8,192
+- Memory for one block's hidden state (fp32): 8 × 1024 × 768 × 4 bytes ≈ **25 MB**
+
+**Your notes:**
+
+---
+
 ## Cheat sheet: numbers worth memorizing
 
 | Name | Value | Where it appears |
