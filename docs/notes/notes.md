@@ -531,6 +531,93 @@ For `B=8, T=1024, D=768`:
 
 ---
 
+## 10. MLP (feedforward) — the "computation" half of every block
+
+### What it is
+A tiny per-token feedforward inside every transformer block:
+```python
+x → c_fc(x)                 # Linear(D, 4*D), expand
+  → GELU(x)                 # elementwise nonlinearity
+  → c_proj(x)               # Linear(4*D, D), compress
+```
+Three operations. Input shape `(B, T, D)`, output shape `(B, T, D)`.
+
+### What it does (and DOESN'T do)
+- **Does:** apply a learned nonlinear transform to each token's D-dim vector, independently per (b, t).
+- **Doesn't:** mix information across tokens. The Linears only operate on the last dim; positions don't see each other. (Compare attention, which is exactly the "mix across tokens" operation.)
+- **Doesn't:** predict next tokens. MLP output is still `(B, T, D)` hidden states. Next-token prediction happens ONCE at the end of the model via `lm_head` — a single Linear that projects D → V.
+
+### Attention vs MLP — the "communication vs computation" framing
+| | Attention | MLP |
+|---|---|---|
+| Mixes across tokens? | YES | NO |
+| Compute per-token? | Minor (Q, K, V projections) | YES — the whole point |
+| Shape | (B, T, D) → (B, T, D) | (B, T, D) → (B, T, D) |
+| Conceptual role | "communication" — gather info from other tokens | "computation" — process each token's info |
+| Inside a block | runs first | runs second |
+
+Both are per-block; each block has exactly one of each. The model has 12 blocks → 12 attentions + 12 MLPs.
+
+### Why 4× expansion?
+The hidden dim is `4 * D` (= 3072 for GPT-2 124M). This came from the original Transformer paper; modern arches sometimes use ~2.67× with SwiGLU to match param count.
+
+Intuition: a nonlinearity sandwiched between two linears is a universal function approximator. The wider the hidden, the more expressivity. Too wide wastes params. 4× is the empirical sweet spot.
+
+### Why a nonlinearity at all? (the math that justifies GELU's existence)
+
+Without a nonlinearity in the middle, the MLP would mathematically collapse to a single Linear:
+```
+Linear(D, 4D)   then   Linear(4D, D)   with no nonlinearity between
+  y = Ax + b₁              z = Cy + b₂
+
+  z = C(Ax + b₁) + b₂  =  (CA)x + (Cb₁ + b₂)  =  one Linear(D, D)
+```
+The 4× expansion buys nothing. Two stacked Linears = one Linear.
+
+Linear functions can only rotate, scale, reflect, and shift vectors. They cannot:
+- Make decisions ("activate this feature only if input > 0")
+- Compute non-linear compositions of features (XOR is the canonical example — no single Linear can compute it)
+- Approximate arbitrary continuous functions
+
+A nonlinearity in the middle unlocks the **universal approximation theorem**: with enough hidden dim, `Linear → nonlinearity → Linear` can approximate ANY continuous function. That's the whole game.
+
+For language modeling specifically, nonlinearity is needed for:
+- Selective activation ("fire on this pattern, suppress otherwise")
+- Feature conjunctions ("if A AND B, then C")
+- Hierarchical composition across stacked layers
+
+Without GELU, GPT-2 would be a 124M-parameter linear regression. Loss would never converge.
+
+### Why GELU, not ReLU?
+- ReLU's gradient is exactly 0 for x < 0 ("dying ReLU"). Many neurons can get stuck.
+- GELU is smooth: small but nonzero gradient for slightly-negative x. All neurons keep getting signal.
+- GPT-2 specifically uses the **tanh approximation** to GELU (`nn.GELU(approximate="tanh")`). Numerical difference vs exact is ~1e-5; we use the tanh version for paper fidelity.
+
+### Param accounting
+- Per MLP: `D × 4D + 4D × D = 8D²` (ignoring biases). For D=768 → 4.7M params.
+- Across 12 blocks: 57M params just for MLPs.
+- About **half of GPT-2 124M's total params live in MLPs.** Compare to attention's 4D² per block (Q, K, V, output) = half of MLP per-block.
+
+### What "MLP encapsulates attention's learning" actually means (or doesn't)
+A common intuition pitfall: thinking MLP somehow stores or summarizes what attention computed. **It doesn't.** Both layers have their own learned parameters. After attention enriches a token's vector with context from other tokens, MLP applies a per-token nonlinear transform to that enriched vector. They're complementary, not nested. Both train independently via backprop.
+
+A better mental model: attention is "gather info from neighbors"; MLP is "now think privately about what you gathered."
+
+### Sources to watch/read
+- Karpathy "Let's build GPT: from scratch" (https://youtu.be/kCc8FmEb1nY) — feedforward section ~1:15–1:20 (verify in chapters).
+- Karpathy "Let's reproduce GPT-2 (124M)" (https://youtu.be/l8pRSuU81PU) — MLP class in the GPT build, first ~30 min.
+
+### Code reference
+- `src/nano_gpt/model/mlp.py` — `GELU_MLP` (full implementation); `SwiGLU_MLP` is a Step 6 stub.
+
+### Open questions
+- Could we use ReLU instead and skip the GELU approximation hassle? Yes, marginal performance loss (~1% perplexity). GELU is the GPT-2 paper choice; we follow it.
+- Why is the hidden dim 4×D, not 2×D or 8×D? Empirical sweet spot. Modern Llama-style models with SwiGLU use ~2.67× because the gated nonlinearity is more expressive per-dim.
+
+**Your notes:**
+
+---
+
 ## Cheat sheet: numbers worth memorizing
 
 | Name | Value | Where it appears |
