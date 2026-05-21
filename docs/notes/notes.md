@@ -252,6 +252,21 @@ Lets effective batch be much larger than GPU memory allows. Implemented in DDP v
 - Without it: deep networks have activations that explode or vanish across layers. Gradients too.
 - With it: each layer's activations are forced to (roughly) zero mean, unit variance. Stable gradients, higher LR works, decouples scale from direction.
 
+### LayerNorm vs BatchNorm in Karpathy's "rows vs columns" framing
+Picture activations as a 2D matrix where:
+- **Rows** = tokens (one row per (b, t) position; for `(B, T, D)`, flatten B and T → `N = B*T` rows)
+- **Columns** = feature dims (D of them — the embedding axis)
+
+Then:
+- **LayerNorm normalizes rows.** For each row, compute mean/std across its D feature values. Each row gets its own (mean, std). N independent normalizations.
+- **BatchNorm normalizes columns.** For each column, compute mean/std across all rows. Each column gets its own (mean, std). D independent normalizations.
+
+This is **exactly what `dim=-1` does** in our code:
+```python
+mean = x.mean(dim=-1, keepdim=True)    # reduce over the last (feature) dim → per-row mean
+```
+"Reduce over dim=-1" = "average across columns per row" = LayerNorm. If you swapped this to `dim=0`, you'd compute per-column means (across rows) — that's the BatchNorm direction.
+
 ### LayerNorm vs. BatchNorm — what dimension do we normalize over?
 Input shape `(B, T, D)`:
 - **BatchNorm**: stats over `(B, T)` for each feature dim. Per-feature mean/var. Used in CNNs.
@@ -613,6 +628,65 @@ A better mental model: attention is "gather info from neighbors"; MLP is "now th
 ### Open questions
 - Could we use ReLU instead and skip the GELU approximation hassle? Yes, marginal performance loss (~1% perplexity). GELU is the GPT-2 paper choice; we follow it.
 - Why is the hidden dim 4×D, not 2×D or 8×D? Empirical sweet spot. Modern Llama-style models with SwiGLU use ~2.67× because the gated nonlinearity is more expressive per-dim.
+
+**Your notes:**
+
+---
+
+## 11. Residual connections — why they exist
+
+### The historical problem: vanishing/exploding gradients
+Without residuals, gradients in a deep network are the **product of N layer-derivatives**:
+```
+∂L/∂x_0 = ∂L/∂x_N · ∂f_N/∂x · ∂f_{N-1}/∂x · ... · ∂f_1/∂x
+```
+If each `∂f/∂x ≈ 0.5`, then after 24 layers the product is `0.5^24 ≈ 6×10⁻⁸` → gradient vanishes. If each ≈ 1.5, product is `~16,000` → gradient explodes. Pre-ResNet (2015), this locked deep networks at ~20 layers.
+
+### The fix: `x_next = x + f(x)`
+Derivative becomes `1 + ∂f/∂x`. Even if `∂f/∂x = 0`, the identity term gives gradients a **direct skip path** backward. After N layers, the product is `∏(1 + small) ≈ 1` regardless of N. **Gradients survive depth.**
+
+This single change unlocked depth:
+- Pre-ResNet: best CNN = 19 layers (VGG-19).
+- Post-ResNet (2015): 152 layers, then 1000+ layers.
+- Transformers: 12+ blocks routine; ~100 blocks now feasible.
+
+### Five concrete benefits
+
+1. **Gradient flow.** Direct skip path → no vanishing/exploding regardless of depth.
+
+2. **"Easy default" at init.** With small init, `f(x)` is small, so `x + f(x) ≈ x`. Each block learns small **corrections** to the identity, not "transform the input from scratch." Vastly easier optimization.
+
+3. **Feature reuse via the residual stream.** Every block adds to the stream; nothing replaces it. Information from block 1 can persist to block 12 unchanged. Different blocks can specialize on shallow vs deep features simultaneously.
+
+4. **Stable deep training** (with LayerNorm). LN keeps each sub-layer's input at unit scale; residuals keep gradients from vanishing. Together they make 12+ block training reliable.
+
+5. **Smoother loss surface.** Empirical: residual networks have dramatically smoother loss landscapes than plain stacks. Easier to optimize.
+
+### What we use: plain residual, NOT highway networks
+- **Highway Networks** (Srivastava 2015): `out = T(x) · f(x) + (1−T(x)) · x` — learned gates.
+- **Residual** (He 2015, ResNet, what we use): `out = x + f(x)` — no gates, simpler.
+
+GPT-2 and all modern transformers use plain residuals.
+
+### In our Block code
+```python
+def forward(self, x):
+    x = x + self.attn(self.ln_1(x))   # residual add #1
+    x = x + self.mlp(self.ln_2(x))    # residual add #2
+    return x
+```
+Two `+`s. That's the entire residual mechanism. Removing either of them would break gradient flow through that sub-layer and likely break training at depth.
+
+### What WOULD go wrong without residuals
+Concretely: if you remove the `x +` and write `x = sublayer(LN(x))`:
+- Initial loss = ln(50257) ≈ 10.8.
+- Loss decreases very slowly or not at all — gradient at input embedding is near zero.
+- Or activations explode → NaN within 100 steps.
+- Either way: no useful training. Empirically tested many times.
+
+### Open questions
+- Why don't we scale the residual contribution (e.g. `x + α·f(x)`)? Some papers do this. Empirically, plain `x + f(x)` works well for transformers. The init scheme (1/sqrt(2*n_layer) on c_proj weights) achieves a similar effect.
+- ResNet style stays `x + f(x)`; DenseNet uses `concat(x, f(x))`. Why not DenseNet for transformers? Concat would force a wider model with each block. Sum is cheaper and equally effective.
 
 **Your notes:**
 
