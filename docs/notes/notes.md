@@ -535,6 +535,20 @@ These four letters appear in nearly every shape annotation. Worth understanding 
 
 Attention mixes across T (within a sequence). MLP processes each (b, t) cell independently (along the D axis). **Neither operation mixes across B.**
 
+### Terminology clarification: "batch" vs "sequence" vs "token"
+A common confusion: "is the batch multiple tokens or multiple batches?"
+
+- **One batch = one tensor** of shape `(B, T)` for ids (or `(B, T, D)` after embedding).
+- That ONE tensor contains **B independent sequences** (rows).
+- Each sequence contains **T sequential tokens** (columns within a row).
+
+Sequences in different rows have nothing to do with each other (different chunks of FineWeb text). Tokens within a row ARE related — they're successive tokens of one document. Attention mixes along T (within a sequence); B is pure parallelism.
+
+So "the batch has many tokens" is true in TWO senses: B sequences and T tokens per sequence. Don't conflate them.
+
+### What is `idx`?
+By Karpathy convention: `idx` is the input token-ids tensor, shape `(B, T)`, dtype int64. Each entry is an integer in `[0, vocab_size)`. The first thing `GPT.forward` does is `self.token_emb(idx)`, which uses `idx` as a row-index into the embedding table — hence the name "idx" (= indices). After embedding lookup, the variable gets renamed `x` (now a float `(B, T, D)` tensor) for the rest of the forward.
+
 ### Quick sanity calculation
 For `B=8, T=1024, D=768`:
 - Independent training examples per forward pass: 8
@@ -687,6 +701,211 @@ Concretely: if you remove the `x +` and write `x = sublayer(LN(x))`:
 ### Open questions
 - Why don't we scale the residual contribution (e.g. `x + α·f(x)`)? Some papers do this. Empirically, plain `x + f(x)` works well for transformers. The init scheme (1/sqrt(2*n_layer) on c_proj weights) achieves a similar effect.
 - ResNet style stays `x + f(x)`; DenseNet uses `concat(x, f(x))`. Why not DenseNet for transformers? Concat would force a wider model with each block. Sum is cheaper and equally effective.
+
+**Your notes:**
+
+---
+
+## 12. Cross-entropy loss for language modeling
+
+### Intuition
+Cross-entropy measures **how surprised the model was by the correct answer**. High prob assigned to the target → low loss; tiny prob to the target → high loss.
+
+### Math (per prediction)
+Given logits `z = [z_0, ..., z_{V-1}]` and target class `y`:
+```
+P(k) = exp(z_k) / Σ_j exp(z_j)             # softmax
+loss = -log P(y) = -z_y + log_sum_exp(z)
+```
+The second form is what `F.cross_entropy` actually computes (numerically stable, no exp overflow).
+
+### Quantitative anchor: initial loss ≈ ln(V)
+At random init, the model has no information. Logits are roughly uniform → `P(any) ≈ 1/V` → `loss ≈ ln(V)`.
+For V = 50257 (GPT-2 vocab): **initial loss ≈ 10.83**.
+
+This is a critical sanity check: if your day-1 initial loss is wildly different (NaN, 0, 50), something is broken **before** training even starts.
+
+### Properties
+- **Non-negative**, min 0 (perfect prediction).
+- **Unbounded above**: as P(target) → 0, loss → +∞.
+- **Heavily penalizes confident wrong predictions** — `-log(0.01) = 4.6` vs `-log(0.5) = 0.7`.
+- **Smooth + differentiable** → gradient descent friendly.
+
+### Why CE specifically (not MSE)
+Cross-entropy IS the maximum-likelihood objective for categorical distributions. Equivalent to "maximize log P(data | model)." MSE would treat all wrong classes equally; CE punishes confident wrong predictions much harder. CE wins empirically and theoretically for classification.
+
+### The flatten trick (used in GPT.forward)
+Logits are `(B, T, V)`, targets are `(B, T)`. `F.cross_entropy` wants 2D inputs `(N, V)` and 1D targets `(N,)`. Flatten:
+```python
+loss = F.cross_entropy(
+    logits.view(-1, logits.size(-1)),   # (B*T, V)
+    targets.view(-1),                    # (B*T,)
+)
+```
+Returns one scalar — the **mean** of the B*T per-position losses. Every (b, t) position contributes a training signal. This is why transformer training is so sample-efficient.
+
+### Code reference
+- `src/nano_gpt/model/gpt.py` — `GPT.forward` computes the loss this way.
+
+**Your notes:**
+
+---
+
+## 13. GPT-2 init scheme — the 1/√(2·n_layer) residual projection scaling
+
+### What we initialize
+Every learnable Parameter starts as a Gaussian sample. GPT-2 paper specifies:
+- **All Linear weights**: `N(0, 0.02²)` — small.
+- **All biases**: 0.
+- **Embeddings**: `N(0, 0.02²)`.
+- **Residual projections** (`c_proj` in attention and MLP, **only these**): `N(0, (0.02/√(2·n_layer))²)`.
+
+For n_layer=12: residual proj std = `0.02 / √24 ≈ 0.00408`. About **5× smaller** than other Linears.
+
+### Why scale down ONLY the residual projections
+At every block, two sub-layer contributions are added to the residual stream. With 12 blocks → 24 sublayer additions. If each contribution had unit variance, the stream's variance would compound additively: `Var(stream) ≈ Var(initial) + 24 × Var(contribution)`. After block 12, the stream would have variance ~25 — way larger than what LN inside the next block expects to see.
+
+Scaling residual projection weights by `1/√(2·n_layer)` makes each contribution have variance `~1/(2·n_layer)` — small enough that 24 additions sum to variance ~1. The stream stays well-conditioned all the way through.
+
+### How we tag residual projections in code
+A marker attribute on the Linear:
+```python
+self.c_proj = nn.Linear(D, D)
+self.c_proj.RESIDUAL_PROJ = True
+```
+Then `GPT._init_weights` checks for this attribute and applies the extra downscaling. Tagged in `attention.py` (c_proj) and `mlp.py` (c_proj).
+
+### What happens without this scaling
+Loss converges much slower, may diverge to NaN early, sensitive to learning rate. Empirically tested in the GPT-2 paper appendix.
+
+### Code reference
+- `src/nano_gpt/model/gpt.py:_init_weights` — the init function applied via `self.apply(self._init_weights)`.
+
+**Your notes:**
+
+---
+
+## 14. Weight tying — the gradient alignment story
+
+§7 covered weight tying mechanically (`self.lm_head.weight = self.token_emb.weight`). Here's the deeper "why does this work" answer.
+
+### The two uses are different operations on the same matrix
+Let W be the shared `(V, D)` matrix:
+- **Input embedding lookup**: for token id `i`, return `W[i]` — pick out one row.
+- **Output projection (lm_head)**: for hidden state `h`, return `h @ W.T` — V dot products of h with each row.
+
+These are mathematically different operations. The model doesn't need a flag to "distinguish" them — the operations themselves are what they are.
+
+### The shared geometric interpretation
+W is a **codebook of token directions** in D-dim space. Each row k IS "the geometric direction representing token k."
+- Used as input: "I'm token k → my vector representation is row k."
+- Used as output: "Given hidden h, how aligned is h with each token's direction? Higher alignment → higher logit."
+
+Both uses are consistent with the same geometric meaning. The matrix encodes "what each token looks like in D-dim space"; that single notion serves both jobs.
+
+### How gradients work with the shared parameter
+PyTorch's autograd handles this automatically via the **sum rule**. When `loss.backward()` runs, contributions from BOTH forward sites accumulate into the same `.grad` attribute. The optimizer reads the combined gradient and takes one step.
+
+### Are the two gradient contributions contradictory?
+**No, they're aligned.**
+- Input-site gradient: "row k should change so that when used as input, it leads to a hidden state that predicts better."
+- Output-site gradient: "row k should change so that as a prediction direction, it's more aligned with hidden states that should predict it."
+
+Both push row k toward the same target: a geometrically coherent representation of token k. They REINFORCE each other rather than fighting. That's why tying empirically improves sample efficiency — every gradient step gets 2× the learning signal per parameter.
+
+### Saves ~30% of model params
+At GPT-2 124M: `V × D = 50257 × 768 = 38.6M params` of lm_head are tied to token_emb. ~30% of the model.
+
+### Why not just remove lm_head and reshape the embeddings?
+We still need an `nn.Linear(D, V, bias=False)` module so the forward pass can write `self.lm_head(x)`. The trick is that its weight is shared with token_emb. The "Linear module" exists for forward-pass ergonomics; the weight is shared underneath.
+
+### Code reference
+- `src/nano_gpt/model/gpt.py:__init__` — the single line `self.lm_head.weight = self.token_emb.weight` that does the tying.
+
+**Your notes:**
+
+---
+
+## 15. Generation — autoregressive sampling
+
+### The loop
+```python
+@torch.no_grad()
+def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+    for _ in range(max_new_tokens):
+        idx_cond = idx if idx.size(1) <= block_size else idx[:, -block_size:]
+        logits, _ = self(idx_cond)              # (B, T, V)
+        logits = logits[:, -1, :] / temperature  # (B, V) - take LAST position only
+        if top_k is not None:
+            v, _ = torch.topk(logits, top_k)
+            logits[logits < v[:, [-1]]] = -float("inf")
+        probs = F.softmax(logits, dim=-1)
+        next_id = torch.multinomial(probs, num_samples=1)  # (B, 1)
+        idx = torch.cat((idx, next_id), dim=1)
+    return idx
+```
+
+### Why we only look at the last position's logits
+At inference, we want `P(next token | seen so far)`. The model produces a (B, T, V) tensor where each (b, t) cell is "what token comes after position t in batch b". We only care about position T-1 — the actual next position. Earlier positions' predictions are wasted (they'd predict tokens we already know).
+
+### Temperature
+- `T = 1`: trained distribution as-is.
+- `T < 1`: sharpens (more deterministic). At `T → 0`, becomes argmax (greedy).
+- `T > 1`: flattens (more random).
+Concretely: `logits / temperature` makes the softmax peakier or flatter. Higher T → more diverse output; lower T → more deterministic.
+
+### Top-k sampling
+Restrict sampling to the k highest-probability tokens. Setting non-top-k logits to `-inf` makes their softmax prob = 0. Prevents sampling truly weird tokens (like the model giving 0.1% prob to "the weirdest token in vocab" and getting unlucky).
+`top_k=1` is argmax (greedy). `top_k=None` means sample from the full distribution.
+
+### Multinomial sampling
+`torch.multinomial(probs, num_samples=1)` draws one sample from the probability distribution. Each token's probability of being drawn matches its softmax value.
+
+### Why context-truncate to block_size?
+The positional embedding table has only `block_size` rows. If the sequence grows beyond that, we can't embed positions > block_size-1. So we slice to the LAST block_size tokens: `idx[:, -block_size:]`. The model "forgets" anything earlier than the past block_size tokens.
+
+### Code reference
+- `src/nano_gpt/model/gpt.py:generate` — the autoregressive loop.
+- `scripts/sample.py` will be the CLI that calls this.
+
+**Your notes:**
+
+---
+
+## 16. The Step 2 smoke test — overfit a single batch
+
+### What it is
+The gold-standard sanity check that the entire architecture is wired correctly. Train on ONE fixed mini-batch for ~100 steps with AdamW. A correctly-built model with sufficient capacity should be able to **memorize that single batch** quickly, driving loss from ~ln(V) toward 0.
+
+### Why this works as a sanity check
+A correctly-built model CAN memorize a tiny dataset. So if you train on a single batch and loss DOESN'T drop, something is broken — typically:
+- Missing residual connection (gradient can't flow through depth)
+- Wrong target alignment (off-by-one in `y` vs `x`)
+- Wrong softmax dim (e.g. softmax over batch instead of vocab)
+- Init too aggressive or too small (NaN, or no learning)
+- LayerNorm bug
+- Embedding not learnable (frozen by accident)
+- ...
+
+A correct model usually drops loss from ~ln(V) (e.g., ~3.5 for V=32) to < 0.5 within 100 steps on a tiny batch.
+
+### What gets verified end-to-end
+- Forward pass produces logits.
+- Cross-entropy is computed at every position.
+- Backward populates `.grad` for every Parameter in the model.
+- Gradient signal reaches embeddings, attention weights, MLP weights, LayerNorm params.
+- Optimizer applies updates that actually reduce loss.
+- Init wasn't pathological.
+
+### Code reference
+- `tests/test_gpt.py:test_smoke_overfit_single_batch` — exactly this pattern.
+
+### What it doesn't test
+- Generalization (overfitting a single batch is the OPPOSITE of generalization).
+- Real-corpus learning (no FineWeb here).
+- Distributed training, mixed precision, gradient accumulation — all that comes in Step 3+.
+
+The smoke test is a **necessary, not sufficient** condition. Passing it means the architecture is sound. Passing real training is a separate step.
 
 **Your notes:**
 
