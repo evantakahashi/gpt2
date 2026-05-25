@@ -176,6 +176,35 @@ def test_generate_token_ids_in_vocab():
     assert (out < cfg.vocab_size).all()
 
 
+def test_generate_with_top_k():
+    """Exercises the top_k path (the other generate tests use top_k=None)."""
+    cfg = make_tiny_cfg(vocab_size=50)
+    model = GPT(cfg)
+    prompt = torch.randint(0, cfg.vocab_size, (1, 3))
+    out = model.generate(prompt, max_new_tokens=5, top_k=10)
+    assert out.shape == (1, 8)
+    assert (out >= 0).all()
+    assert (out < cfg.vocab_size).all()
+
+
+def test_generate_top_k_larger_than_vocab():
+    """top_k > vocab_size must not crash (min(top_k, V) guards this)."""
+    cfg = make_tiny_cfg(vocab_size=20)
+    model = GPT(cfg)
+    prompt = torch.randint(0, cfg.vocab_size, (1, 2))
+    out = model.generate(prompt, max_new_tokens=3, top_k=1000)  # 1000 >> vocab 20
+    assert out.shape == (1, 5)
+
+
+def test_generate_with_temperature():
+    """Temperature scaling path should run without error."""
+    cfg = make_tiny_cfg(vocab_size=50)
+    model = GPT(cfg)
+    prompt = torch.randint(0, cfg.vocab_size, (1, 2))
+    out = model.generate(prompt, max_new_tokens=4, temperature=0.7, top_k=5)
+    assert out.shape == (1, 6)
+
+
 # --- THE BIG ONE: overfit a single batch (Step 2 smoke test) ---
 
 

@@ -4,6 +4,65 @@ Reference doc capturing everything covered in the build sessions. Topics ordered
 
 ---
 
+## ⚡ Quiz review — misconceptions to nail down (Step 2 oral quiz)
+
+Things I got wrong or fuzzy on during the Step 2 quiz, with the correct explanation. Re-read these — they're the exact spots where my mental model needed fixing.
+
+### Tokenization (Q1)
+- **Tokenization is deterministic, not dataset-dependent at use time.** The 50000 BPE merges were learned once (on WebText, by OpenAI). After `get_encoding("gpt2")`, "hello world" → `[31373, 995]` every time. The dataset only mattered when BPE was originally trained.
+- **Why the model needs integers:** it's a neural net — it does linear algebra on numbers. The first op `token_emb(idx)` is a row-lookup that requires integer indices. Strings can't go in.
+- **Round-trip `decode(encode(s)) == s` proves losslessness** — no bytes lost. Critical for byte-level BPE (handles any input including emoji/binary). Not just "decode undoes encode."
+
+### Embeddings (Q2)
+- **Why position matters — the precise reason: self-attention is permutation-invariant.** Shuffle the input tokens → attention gives the same output. The model literally can't tell "the cat sat" from "sat cat the" without positional info. (Not just "for grammar.")
+- **Token embedding is ~30% of params, not 15%.** 50257 × 768 ≈ 38.6M out of 124M.
+- **Positional embedding output is (T, D)** — no batch dim. It broadcasts over B when summed with the (B, T, D) token embeddings.
+
+### LayerNorm (Q3)
+- **γ is initialized to 1, β to 0** — NOT `N(0, 0.02²)`. (That `N(0, 0.02²)` init is for Linear/Embedding weights.) γ=1, β=0 means LN starts as pure standardization, then learns deviations.
+- **Without-LN failure mechanism:** activations drift across depth → softmax/GELU saturate (gradient ≈ 0) → gradients vanish/explode → can't train past a few layers.
+- **Two LNs per block (ln_1, ln_2)** because γ and β are separate learnable params; attention and MLP want different input statistics. Sharing one LN couples them.
+
+### Attention (Q4)
+- **Causal mask is about TRAINING-time anti-cheating, not stability.** Without it, position i could attend to token i+1 (the answer it's predicting) and trivially copy it → zero loss, no learning. The mask forces "predict next token from past only."
+- **Attention weights ARE a probability distribution.** There are TWO softmaxes in the model: (1) attention softmax over (T,T) scores → attention weights summing to 1 per row, inside every block; (2) final softmax over (B,T,V) logits → vocab distribution, at the very end. Don't conflate.
+- **Scaling order:** divide by √d_head BETWEEN `Q@K.T` and softmax, not after the V multiply.
+- **√d_head not d_head:** variance scales with d_head, so std scales with √d_head. Without scaling, softmax saturates.
+- **Multi-head buys specialization:** different heads attend to different relationships in parallel (syntax, coreference, content similarity). Same param count, n_head independent softmaxes.
+
+### MLP (Q5)
+- **Attention mixes across TOKENS; MLP processes each token independently (across FEATURES).** I had this backwards — MLP does NOT mix across tokens or across attention heads. (Head-mixing is done by attention's c_proj.) Framing: attention = communication, MLP = computation.
+- **Without a nonlinearity, two stacked Linears collapse to one Linear:** `C(Ax+b₁)+b₂ = (CA)x + b'`. The 4× expansion would be wasted. GELU is what unlocks universal approximation.
+
+### Block / Pre-LN / residual stream (Q6)
+- **Why the residual stream stays unnormalized — TWO reasons:**
+  - *Forward:* the stream accumulates contributions across 12 blocks. Normalizing it each block (Post-LN) would rescale/wash out earlier blocks' contributions, diluting early-block info. Keeping it unnormalized lets block 1's signal survive to block 12. *(This is the reason I missed.)*
+  - *Backward:* the unnormalized residual gives gradients a clean `+1` identity path. Normalizing the stream routes gradient through 24 LN Jacobians in series (bad for flow).
+- **Why block input/output is the same shape (B,T,D) — it's stackability, NOT "losslessness."** Uniform `(B,T,D) → (B,T,D)` interface means you can stack 12 blocks in a simple loop (`for block: x = block(x)`) with no reshaping glue. Like standardized LEGO connectors. ("Lossless" isn't a meaningful property — the block transforms the data.)
+
+### GPT assembly / init scheme (Q7)
+- **Why only residual projections (`c_proj`) get the 1/√(2·n_layer) downscale:** because `c_proj` layers are the ones that WRITE into the residual stream (their output is what gets `x +`'d). The other Linears (c_attn, c_fc) are intermediate and don't write directly to the stream. Only stream-writers need scaling to control how much variance each block dumps in.
+- **Where the `2` and `√` come from (NOT arbitrary):** variance-matching. Each block adds 2 contributions to the stream (attn c_proj + mlp c_proj) → `2·n_layer` total. To keep `Var(stream) ≈ 1` after summing `2·n_layer` contributions, each needs variance `1/(2·n_layer)`. Variance = std², so scale std by `1/√(2·n_layer)`.
+- **Initial loss = ln(V) ≈ ln(50257) ≈ 10.83.** Random init → uniform logits → P(target) ≈ 1/V → loss = -log(1/V) = log(V). Concrete day-1 sanity check: a fresh GPT-2 shows ~10.8 on the first batch. Wildly different (0, NaN, 50) = bug before training.
+
+### Forward shape progression (Q8)
+- **Loss is ALWAYS a scalar `()`.** I confused the flatten INPUT with the OUTPUT. `logits.view(-1, V)` is `(B*T, V)` — that's what goes INTO cross_entropy. `F.cross_entropy(...)` returns a single scalar (mean over all B*T positions). You can't backprop from a tensor; backward needs one number.
+- **Shape progression:** `(B,T)` ids → `(B,T,D)` after embed → `(B,T,D)` through all blocks → `(B,T,D)` after ln_f → `(B,T,V)` after lm_head → `()` scalar after CE. Only lm_head changes the last dim (D→V).
+- **Inference uses only the LAST position's logits** (`logits[:, -1, :]`). Reason: position t predicts token t+1. The last position predicts what comes after the WHOLE prompt — the only genuinely new token. Earlier positions predict tokens we already have. (Training uses ALL positions — each is a known training signal; that's what makes training sample-efficient.)
+
+### Capstone: full pipeline (Q12)
+- **Pre-LN ordering — LN comes BEFORE each sublayer, not between attention and MLP.** Per block: `ln_1 → attention → (add to stream) → ln_2 → MLP → (add to stream)`. I described it as attention→LN→MLP, but LN normalizes the INPUT view each sublayer reads, not attention's output. The unnormalized residual stream flows between sublayers; each sublayer gets a normalized view via its own LN.
+- **lm_head is a single Linear (D→V), NOT an MLP.** No hidden layer, no GELU. One matrix multiply from hidden dim to vocab.
+- **Training endpoint = cross-entropy loss; inference endpoint = sampled token.** Training: logits at all positions → CE loss (internally log-softmax + NLL). Inference: last position's logits → softmax → top-k → multinomial → token. Don't describe training as "softmax then sample" — that's the inference path.
+
+### Generation: multinomial vs argmax (Q10)
+- **`torch.multinomial(probs, n)` samples RANDOMLY from the distribution, weighted by probability.** A token with prob 0.6 gets drawn ~60% of the time. **`argmax` always picks the single max** (deterministic).
+- **Why multinomial:** variety. Greedy/argmax gives the same (often repetitive) output every time; multinomial sampling produces diverse, natural generations.
+- **The pipeline ties together:** `logits ÷ temperature` (shape: sharper/flatter) → `top-k filter` (restrict to k most likely) → `softmax` → `multinomial sample`. Temperature and top-k SHAPE the distribution; multinomial SAMPLES from it. With argmax, temperature/top-k (beyond k=1) would be pointless — argmax ignores distribution shape.
+- **temp < 1** = sharper/deterministic (temp→0 = argmax); **temp > 1** = flatter/random. **top_k=1** = greedy = argmax.
+
+---
+
 ## 1. Tokenizers (BPE) and GPT-2's `gpt2` encoding
 
 ### Why a tokenizer exists
@@ -292,6 +351,36 @@ Where:
 - `β` = `self.bias`   ∈ R^D, learned, initialized to 0. (GPT-2 has it; modern arches drop it.)
 - `ε` = `self.eps` ≈ 1e-5, prevents divide-by-zero.
 
+### γ and β are SHARED across all tokens (per-feature, not per-token)
+A common confusion: do γ and β change per token? **No.** They're each shape `(D,)` — one scalar per feature dim, shared across:
+- Every batch row (B)
+- Every position (T)
+- Within a single forward pass and the whole training run
+
+Stage 1 (standardization) IS per-token — each (b, t) row uses its own mean/var. But Stage 2 applies the **same** γ and β to every token. So if `γ[47] = 2.0`, then feature 47 gets doubled for **every** token in the batch (and every token in every batch). γ encodes "for the model's representation as a whole, this is how loud each feature should be."
+
+**Refined mental model:**
+```
+Stage 1 (per-token): every (b, t) row → mean=0, var=1     ← rigid, local
+Stage 2 (shared):    same γ ⊙ x̂ + β applied to every row  ← flexible, global
+```
+
+### Features = "neurons" (with caveats)
+Each of the D dims at a (b, t) position is a "feature" or "neuron activation". Terminology is loose:
+- **Activation**: scalar at one (b, t, d) location.
+- **Neuron** (= "feature dim"): the index `d`. "Neuron 47" = feature 47 across all tokens.
+
+**Crucial caveat:** features are NOT single-concept. Modern networks learn **distributed representations** — concepts are encoded in **directions** (combinations of dims), not in individual dims. Most neurons are polysemantic (encode multiple concepts mixed together). Sometimes you find monosemantic neurons (single clean concept), but they're the exception. This is the central object of interpretability research.
+
+So when we say "γ[47] amplifies feature 47," we don't mean "amplifies a specific human-interpretable concept." We mean "amplifies whatever distributed bits of information happen to be encoded in dim 47 by training."
+
+### How γ and β learn their values
+Same as every other Parameter: gradient descent on the loss.
+```
+loss → backward → ∂loss/∂γ[i] computed → optimizer step → γ[i] updates
+```
+If increasing γ[i] would reduce loss, γ[i] increases. If not, it decreases (or stays put). Over many steps, γ and β converge to whatever values minimize loss on the training data. No human intervention; pure mechanical optimization.
+
 ### Why γ and β exist (they seem to undo the normalization)
 The normalization forces a fixed distribution. γ and β let the network **un-normalize on purpose** if a particular feature should be a different scale or offset. The model gets the benefit of stable gradients during training PLUS the flexibility to learn its own per-feature scale.
 
@@ -377,6 +466,19 @@ Naively, adding position to content seems to corrupt both. But because gradients
 
 ### Code reference
 - `src/nano_gpt/model/embeddings.py` — `TokenEmbedding` (full), `LearnedPositionalEmbedding` (your `forward` TODO), `RoPECache`/`apply_rope` stubs for Step 6.
+
+### Embedding quality scales with token frequency (the long-tail problem)
+Each gradient update to `token_emb.weight` only touches the rows for tokens that **appeared in the batch**. So embedding quality scales with how often a token appears in training data:
+- Common tokens (" the", " of") get millions of updates → highly refined.
+- Rare tokens get tens or hundreds → close to random init.
+
+Natural text follows **Zipf's law** (power-law frequency distribution): the top ~1000 tokens account for ~80% of all updates. The long tail of rare tokens learns much less.
+
+**Weight tying mitigates this.** With `lm_head.weight = token_emb.weight`, the lm_head's softmax-over-vocab gradient touches **every row** at every step (as "wrong-class" gradient signal). Rare token rows still move during training, just not from input-side. Empirically, weight tying improves long-tail performance noticeably.
+
+**BPE also mitigates this.** Byte-level BPE breaks rare words into subwords that appear frequently. "myocardiopathy" → " my", "ocard", "iopathy" — each subword sees enough training to be useful, even if the full word is rare.
+
+Practical implication: model + vocab size must match training corpus size. Tiny corpus + huge vocab = useless tail.
 
 ### Are embeddings trained? YES — they're learned end-to-end
 Both `TokenEmbedding.weight` and `LearnedPositionalEmbedding.weight` are `nn.Parameter` — exactly like attention weights, MLP weights, LN γ/β. They start as random Gaussian noise (`N(0, 0.02)` per GPT-2 init) and are updated by AdamW via standard backprop, jointly with the rest of the model.
